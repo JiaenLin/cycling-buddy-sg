@@ -24,18 +24,52 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Cycling Buddy SG",
-  "url": "https://jiaenlin.github.io/cycling-buddy-sg/",
-  "description": "The free, offline-capable cycling map for Singapore: all 7 Park Connector (PCN) loops, LTA cycling paths, the Rail Corridor, 305 parks and nature reserves, and 396 bike parking racks. Turn-by-turn routing that prefers park connectors, live NEA rain radar, and ride recording with GPX export.",
-  "applicationCategory": "TravelApplication",
-  "operatingSystem": "Any",
-  "browserRequirements": "Requires JavaScript and a modern browser",
-  "isAccessibleForFree": true,
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "SGD" },
-  "inLanguage": "en-SG",
-  "author": { "@type": "Person", "name": "Lin Jiaen", "url": "https://github.com/JiaenLin" },
-  "keywords": "Singapore cycling map, Park Connector Network, PCN map, PCN loops, cycling route planner Singapore, cycling paths Singapore, Rail Corridor, parks and nature reserves Singapore, bicycle parking Singapore, bike racks, rain radar Singapore, bicycle Singapore"
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": "https://jiaenlin.github.io/cycling-buddy-sg/#lin-jiaen",
+      "name": "Lin Jiaen",
+      "url": "https://github.com/JiaenLin",
+      "sameAs": ["https://github.com/JiaenLin"],
+      "jobTitle": "Software Engineer",
+      "knowsAbout": ["Singapore Park Connector Network", "cycling in Singapore", "web mapping", "Progressive Web Apps"]
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://jiaenlin.github.io/cycling-buddy-sg/#app",
+      "name": "Cycling Buddy SG",
+      "alternateName": "Cycling Buddy Singapore",
+      "url": "https://jiaenlin.github.io/cycling-buddy-sg/",
+      "description": "Cycling Buddy SG is a free, offline-capable cycling map for Singapore covering all 7 Park Connector (PCN) loops, LTA cycling paths, the Rail Corridor, 305 parks and nature reserves, and 396 bike parking racks. It offers turn-by-turn routing that prefers park connectors, a live NEA rain radar, and ride recording with GPX export.",
+      "applicationCategory": "TravelApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript and a modern browser",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "SGD" },
+      "inLanguage": "en-SG",
+      "datePublished": "2026-07-16",
+      "dateModified": "2026-07-17",
+      "author": { "@id": "https://jiaenlin.github.io/cycling-buddy-sg/#lin-jiaen" },
+      "creator": { "@id": "https://jiaenlin.github.io/cycling-buddy-sg/#lin-jiaen" },
+      "publisher": { "@id": "https://jiaenlin.github.io/cycling-buddy-sg/#lin-jiaen" },
+      "screenshot": "https://jiaenlin.github.io/cycling-buddy-sg/icons/og.png",
+      "featureList": ["7 Park Connector loops, colour-coded", "LTA cycling paths", "Rail Corridor heritage trail", "305 parks and nature reserves", "396 bike parking racks", "Offline turn-by-turn routing", "Live NEA 2-hour rain radar", "Ride recording with GPX export", "Installable PWA, works offline"],
+      "areaServed": { "@type": "Country", "name": "Singapore" },
+      "keywords": "Singapore cycling map, Park Connector Network, PCN map, PCN loops, cycling route planner Singapore, cycling paths Singapore, Rail Corridor, parks and nature reserves Singapore, bicycle parking Singapore, bike racks, rain radar Singapore, bicycle Singapore"
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://jiaenlin.github.io/cycling-buddy-sg/#faq",
+      "mainEntity": [
+        { "@type": "Question", "name": "What is Cycling Buddy SG?", "acceptedAnswer": { "@type": "Answer", "text": "Cycling Buddy SG is a free, offline-capable cycling map for Singapore. It shows all 7 Park Connector Network (PCN) loops, LTA cycling paths, the Rail Corridor, 305 parks and nature reserves, and 396 bike-parking racks on one map, with offline turn-by-turn routing, a live NEA rain radar, and ride recording. Built by Lin Jiaen, it installs from any browser with no app store." } },
+        { "@type": "Question", "name": "Is Cycling Buddy SG free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Cycling Buddy SG is completely free, with no ads, no sign-up, and no tracking cookies. It is built and maintained by Lin Jiaen using open data from NParks, LTA and NEA via data.gov.sg." } },
+        { "@type": "Question", "name": "Does Cycling Buddy SG work offline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Cycling Buddy SG is a Progressive Web App (PWA). Once loaded it caches the map, the routing graph and the network layers, so route planning and the park-connector map keep working without a connection. Only the live rain radar needs a connection to refresh." } },
+        { "@type": "Question", "name": "What is the Park Connector Network (PCN) in Singapore?", "acceptedAnswer": { "@type": "Answer", "text": "The Park Connector Network is Singapore's islandwide system of cycling and walking paths — about 334.8 km across 7 colour-coded loops — that link parks, nature reserves and neighbourhoods. Cycling Buddy SG maps all 7 loops and plans routes that prefer them over roads." } },
+        { "@type": "Question", "name": "How do I install Cycling Buddy SG on my phone?", "acceptedAnswer": { "@type": "Answer", "text": "Open jiaenlin.github.io/cycling-buddy-sg in your phone's browser and choose Add to Home Screen — via the Share menu in Safari on iPhone, or the browser menu in Chrome on Android. It installs like a native app and runs full-screen and offline." } },
+        { "@type": "Question", "name": "Do I need a helmet to cycle in Singapore?", "acceptedAnswer": { "@type": "Answer", "text": "Helmets are required by law when cycling on Singapore roads. Cycling Buddy SG prefers park connectors and avoids expressways, and shows a helmet reminder whenever a planned route has to use roads." } }
+      ]
+    }
+  ]
 }
 </script>
 <meta name="theme-color" content="#0E1613" media="(prefers-color-scheme: dark)">
@@ -179,7 +213,7 @@
     <div class="grip"></div>
     <button class="iconbtn close" id="closeSheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h3>Cycling Buddy SG — your Singapore cycling companion</h3>
-    <p>The whole of cycling Singapore on one map: the 7 Park Connector loops, LTA's cycling paths, the Rail Corridor, every park and nature reserve, and bike parking island-wide. Plan a route offline, check the rain before you go, find your nearest connector, and record your ride — installable, free, and no app store.</p>
+    <p><b>Cycling Buddy SG is a free, offline cycling map for Singapore</b> — the whole network on one map: the 7 Park Connector loops, LTA's cycling paths, the Rail Corridor, every park and nature reserve, and bike parking island-wide. Plan a route offline, check the rain before you go, find your nearest connector, and record your ride — installable, free, and no app store.</p>
     <p><b>How to use</b></p>
     <ul>
       <li>Drag to pan, pinch/scroll to zoom, tap anything — a path, a park, a rack — to identify it.</li>
@@ -193,6 +227,14 @@
       <li>Toggle any layer — loops, Rail Corridor, cycling paths, parks, bike parking — in the Layers panel; tap its <span class="kbd">⤢</span> to frame it.</li>
       <li><span class="kbd">⬇</span> Install — tap the install button (top bar) to add it to your home screen and run it offline like a native app.</li>
     </ul>
+    <p><b>Common questions</b></p>
+    <div class="faq">
+      <details><summary>Is Cycling Buddy SG free?</summary><p>Yes — completely free, with no ads, no sign-up and no tracking cookies. It's built and maintained by Lin Jiaen using open data from NParks, LTA and NEA via data.gov.sg.</p></details>
+      <details><summary>Does it work offline?</summary><p>Yes. It's a Progressive Web App: once loaded it caches the map, the routing graph and the network layers, so route planning and the park-connector map keep working without a connection. Only the live rain radar needs a connection to refresh.</p></details>
+      <details><summary>What is the Park Connector Network (PCN)?</summary><p>Singapore's islandwide system of cycling and walking paths — about 334.8 km across 7 colour-coded loops — linking parks, nature reserves and neighbourhoods. This app maps all 7 loops and plans routes that prefer them over roads.</p></details>
+      <details><summary>How do I install it on my phone?</summary><p>Open the site in your phone's browser and choose <b>Add to Home Screen</b> — the Share menu in Safari on iPhone, or the browser menu in Chrome on Android. It then runs full-screen and offline like a native app.</p></details>
+      <details><summary>Do I need a helmet?</summary><p>Helmets are required by law when cycling on Singapore roads. The app prefers park connectors and avoids expressways, and shows a helmet reminder whenever a route has to use roads.</p></details>
+    </div>
     <p><b>Data &amp; maps</b><br>Park connectors (primary): NParks <i>Park Connector Loop</i> (data.gov.sg) — <span id="sheetKm">—</span> km, 7 loops. Rail Corridor: the former KTM railway heritage trail — <span id="sheetRailKm">—</span> km (dashed line; some stretches closed for improvement works, reopening 2027). Cycling paths (secondary): LTA <i>Cycling Path Network</i> — <span id="sheetCpnKm">—</span> km. Parks &amp; nature reserves: NParks via data.gov.sg — <span id="sheetParks">—</span> green spaces, <span id="sheetParkKm2">—</span> km² (playgrounds, fitness corners and grass verges in that dataset are left off — they're not cycling destinations). Bike parking: LTA <i>Bicycle Rack</i> — <span id="sheetRacks">—</span> racks, <span id="sheetSpaces">—</span> spaces. Weather: NEA <i>2-hour forecast</i> via data.gov.sg (live, refreshed as you ride). Routing, Rail Corridor &amp; basemap: © OpenStreetMap contributors (ODbL); basemap hosting by OpenFreeMap.</p>
     <p class="fine">Offline turn-by-turn prefers park connectors and avoids expressways. Your location stays on your device. Visits are counted anonymously — no cookies, no accounts, no personal data. Basemap tiles cache as you view them, so revisited areas work offline.</p>
     <p class="fine">Built by <a href="https://github.com/JiaenLin" target="_blank" rel="noopener">Lin Jiaen</a> · © 2026 Lin Jiaen · All rights reserved.<br>Enjoying the app? Share it with your kakis — tap the share button up top.</p>
