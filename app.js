@@ -181,12 +181,13 @@ function computeNearest(){
   nearest = bp ? {lng:bp[0], lat:bp[1], dist:Math.sqrt(best), loop:bl} : null;
 }
 function updateNearUI(){
-  if(!nearest){ $('nearDist').textContent='—'; $('nearSub').textContent='Tap ◎ to locate'; return; }
+  if(!nearest){ $('nearDist').textContent='—'; $('nearSub').textContent='Tap ◎ to locate'; updatePeek(); return; }
   const d=nearest.dist;
   $('nearDist').textContent = d<1000 ? Math.round(d)+' m' : (d/1000).toFixed(2)+' km';
   const nm = nearest.loop>=0 ? META.loops[nearest.loop].name : 'a park path';
   const col = nearest.loop>=0 ? LOOP_COLORS[nearest.loop] : OTHER;
   $('nearSub').innerHTML = `on <span class="dk-loop"><i style="background:${col}"></i>${esc(nm)}</span>`;
+  updatePeek();
 }
 function refreshNearestSource(){
   const src = map.getSource && map.getSource('nearest'); if(!src) return;
@@ -223,12 +224,13 @@ function updateRecUI(){
   $('recStat').textContent=(recDist/1000).toFixed(2)+' km';
   $('recAvg').textContent = el>3 ? ((recDist/el)*3.6).toFixed(1) : '0.0';
   $('recCur').textContent = (user && user.speed!=null && user.speed>=0) ? (user.speed*3.6).toFixed(1) : '—';
+  updatePeek();
 }
 function startRec(){
   if(!locActive) geo.trigger();
   recording=true; track=[]; recDist=0; lastPt=null; recStart=performance.now();
   $('recBtn').classList.add('active'); $('recBtn').setAttribute('aria-label','Stop recording');
-  show('viewRec');
+  show('viewRec'); setDock(false);
   recTimer=setInterval(()=>{ track.length ? updateRecUI() : ($('recTime').textContent=fmtTime((performance.now()-recStart)/1000)); }, 1000);
 }
 function stopRec(){
@@ -312,8 +314,17 @@ function fillStats(){
 
 // ---------- views / dock ----------
 const views={viewNearest:$('viewNearest'),viewRec:$('viewRec'),viewSum:$('viewSum'),viewRoute:$('viewRoute')};
-function show(v){ for(const k in views) views[k].hidden = (k!==v); setDockH(); }
+function show(v){ for(const k in views) views[k].hidden = (k!==v); updatePeek(); setDockH(); }
 function setDockH(){ document.documentElement.style.setProperty('--dockh', ($('dock').offsetHeight+14)+'px'); }
+function setDock(collapsed){ $('dock').classList.toggle('collapsed', collapsed); $('dockHandle').setAttribute('aria-expanded', String(!collapsed)); updatePeek(); setDockH(); }
+function updatePeek(){
+  let t='Nearby';
+  if(!views.viewNearest.hidden) t = nearest ? ('Nearest connector · '+$('nearDist').textContent) : 'Tap ◎ to find the nearest connector';
+  else if(!views.viewRoute.hidden) t = routeResult ? ('Route · '+(routeResult.meters/1000).toFixed(1)+' km · '+Math.round(100*routeResult.cyclingPct)+'% cycling') : 'Plan a route';
+  else if(!views.viewRec.hidden) t = 'Recording · '+(recDist/1000).toFixed(2)+' km';
+  else if(!views.viewSum.hidden) t = 'Ride saved · '+$('sumDist').textContent+' km';
+  $('dockPeek').textContent=t;
+}
 
 // ---------- theme toggle ----------
 const SUN=`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>`;
@@ -356,7 +367,7 @@ function ensureGraph(){
 function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); resetRoutePanel(); ensureGraph();
+  show('viewRoute'); resetRoutePanel(); setDock(false); ensureGraph();
 }
 function exitRoute(){
   routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor='';
@@ -383,7 +394,7 @@ function computeRoute(){
     if(!ok) return;
     const two=Router.routeTwo(routeStart,routeEnd);
     if(!two){ routeOptions=null; routeResult=null; toast('No route found between those points'); hideOptions(); refreshRouteSource(); updateRtButtons(); return; }
-    routeOptions=two; renderOptions(two); selectRouteOption('max', true);
+    routeOptions=two; renderOptions(two); selectRouteOption('max', true); setDock(false);
     if(routeResult && routeResult.hasCarWay) toast('Heads up: this route uses roads — wear a helmet (required on Singapore roads).');
   });
 }
@@ -411,6 +422,7 @@ function selectRouteOption(k, fit){
   refreshRouteSource(); renderDirs(routeResult.directions); updateRtButtons();
   $('rtKey').hidden=false;
   $('rtNotice').hidden = !routeResult.hasCarWay;
+  updatePeek();
   if(fit){ const b=new maplibregl.LngLatBounds(); routeResult.coords.forEach(c=>b.extend(c)); map.fitBounds(b,{padding:{top:110,bottom:280,left:50,right:50}}); }
 }
 const DIR_ICONS={
@@ -469,29 +481,40 @@ function toggleLegend(){ const c=legend.classList.toggle('collapsed'); lgHead.se
 lgHead.addEventListener('click', toggleLegend);
 lgHead.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleLegend(); } });
 
-// ---------- about sheet ----------
-const scrim=$('scrim'), sheet=$('sheet');
-function openSheet(){ scrim.classList.add('open'); sheet.classList.add('open'); }
-function closeSheet(){ scrim.classList.remove('open'); sheet.classList.remove('open'); }
-$('infoBtn').addEventListener('click', openSheet);
-$('closeSheet').addEventListener('click', closeSheet);
-scrim.addEventListener('click', closeSheet);
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSheet(); });
+// ---------- modal sheets (about / install) ----------
+const scrim=$('scrim');
+function openModal(el){ scrim.classList.add('open'); el.classList.add('open'); }
+function closeModal(){ scrim.classList.remove('open'); document.querySelectorAll('.sheet.open').forEach(s=>s.classList.remove('open')); }
+$('infoBtn').addEventListener('click', ()=>openModal($('sheet')));
+$('closeSheet').addEventListener('click', closeModal);
+$('closeInstall').addEventListener('click', closeModal);
+scrim.addEventListener('click', closeModal);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
 // ---------- toast ----------
 let toastT=null; const toastEl=$('toast');
 function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove('show'),3200); }
 
-// ---------- install prompt ----------
+// ---------- install ----------
+const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 let deferredPrompt=null;
+if(!isStandalone) $('installBtn').hidden=false;   // always offer an install path
 window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; $('installBtn').hidden=false; });
-$('installBtn').addEventListener('click', async ()=>{ if(!deferredPrompt)return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; $('installBtn').hidden=true; });
-window.addEventListener('appinstalled', ()=>{ $('installBtn').hidden=true; toast('Installed — find “Cycling Buddy” on your home screen'); });
+$('installBtn').addEventListener('click', async ()=>{
+  if(deferredPrompt){ deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch(e){} deferredPrompt=null; return; }
+  $('installIos').hidden = !isIOS; $('installOther').hidden = isIOS;   // no native prompt (iOS, or not yet eligible) -> show steps
+  openModal($('installSheet'));
+});
+window.addEventListener('appinstalled', ()=>{ $('installBtn').hidden=true; closeModal(); toast('Installed — find “Cycling Buddy” on your home screen'); });
 
 // ---------- service worker ----------
 if('serviceWorker' in navigator){ window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 
 // ---------- init ----------
 syncThemeIcon();
+$('dockHandle').addEventListener('click', ()=> setDock(!$('dock').classList.contains('collapsed')));
+if(matchMedia('(max-width:560px)').matches){ legend.classList.add('collapsed'); lgHead.setAttribute('aria-expanded','false'); }
+updatePeek();
 setDockH();
 window.addEventListener('resize', setDockH);

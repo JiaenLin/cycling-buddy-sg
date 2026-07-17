@@ -57,6 +57,8 @@
   </div>
 
   <div class="dock" id="dock">
+    <button class="dock-handle" id="dockHandle" aria-label="Expand or collapse panel" aria-expanded="true"><span class="grip"></span><span class="dock-peek" id="dockPeek"></span></button>
+    <div class="dock-body" id="dockBody">
     <div id="viewNearest">
       <div class="dk-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg> Nearest park connector</div>
       <div class="dk-main"><span class="dk-big" id="nearDist">—</span><span class="dk-sub" id="nearSub">Tap ◎ to locate</span></div>
@@ -110,6 +112,7 @@
       </div>
       <div id="rtDirs" class="rt-dirs" hidden></div>
     </div>
+    </div>
   </div>
 
   <div class="scrim" id="scrim"></div>
@@ -125,10 +128,33 @@
       <li><span class="kbd">⦚</span> Route — tap a start &amp; destination for offline turn-by-turn that prefers park connectors.</li>
       <li><span class="kbd">●</span> Record — traces your ride with distance, time and speed; export GPX.</li>
       <li>Toggle any loop in the Loops panel; tap its <span class="kbd">⤢</span> to frame it.</li>
-      <li>Install it (browser menu → <i>Add to Home Screen</i>) to use it like a native app.</li>
+      <li><span class="kbd">⬇</span> Install — tap the install button (top bar) to add it to your home screen and run it offline like a native app.</li>
     </ul>
     <p><b>Data &amp; maps</b><br>Park connectors (primary): NParks <i>Park Connector Loop</i> (data.gov.sg) — <span id="sheetKm">—</span> km, 7 loops. Cycling paths (secondary): LTA <i>Cycling Path Network</i> — <span id="sheetCpnKm">—</span> km. Routing &amp; basemap: © OpenStreetMap contributors (ODbL), © CARTO.</p>
-    <p class="fine">Prototype: nearest is straight-line, not turn-by-turn routing (coming next). Location stays on your device. Basemap tiles need a connection the first time; after that, viewed areas are cached for offline.</p>
+    <p class="fine">Offline turn-by-turn prefers park connectors and avoids expressways. Your location stays on your device. Basemap tiles cache as you view them, so revisited areas work offline.</p>
+  </div>
+
+  <div class="sheet" id="installSheet" role="dialog" aria-modal="true" aria-label="Add to Home Screen">
+    <div class="grip"></div>
+    <button class="iconbtn close" id="closeInstall" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h3>Add to Home Screen</h3>
+    <div id="installIos" hidden>
+      <p>On iPhone or iPad, in <b>Safari</b>:</p>
+      <ol>
+        <li>Tap the <b>Share</b> button (the square with an up-arrow) in the toolbar.</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+        <li>Tap <b>Add</b> — it installs as <i>Cycling Buddy</i> and opens full-screen.</li>
+      </ol>
+      <p class="fine">Add to Home Screen only appears in Safari, not Chrome, on iOS.</p>
+    </div>
+    <div id="installOther" hidden>
+      <p>In your browser's menu (<span class="kbd">⋮</span> or <span class="kbd">⋯</span>):</p>
+      <ol>
+        <li>Tap <b>Install app</b> or <b>Add to Home Screen</b>.</li>
+        <li>Confirm — it installs as <i>Cycling Buddy</i> and works offline.</li>
+      </ol>
+      <p class="fine">Don't see it yet? Pan the map for a few seconds, then try again — the browser needs a moment to qualify the app.</p>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
