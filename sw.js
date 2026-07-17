@@ -1,5 +1,5 @@
 /* Cycling Buddy SG PWA service worker — offline app shell + runtime basemap tile cache */
-const VERSION = 'cbsg-v5';
+const VERSION = 'cbsg-v6';
 const SHELL = VERSION + '-shell';
 const TILES = VERSION + '-tiles';
 const TILE_MAX = 800; // cap runtime tile cache entries

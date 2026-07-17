@@ -156,17 +156,29 @@ function addLayers(){
       'line-color':['match',['get','kind'], 'road', ROUTE_ROAD, 'foot', ROUTE_FOOT, getVar('--accent')],
       'line-width':['interpolate',['linear'],['zoom'],11,3.5,16,7.5]}});
 
-  // Weather overlay (NEA 2-hour forecast) — opt-in dots coloured by rain severity; topmost so they're tappable
+  // Weather overlay (NEA 2-hour forecast) — a "rain radar": soft glowing cells over wet areas, dry areas de-emphasised
   if(!map.getSource('wx')) map.addSource('wx',{type:'geojson',data:emptyFC()});
-  if(!map.getLayer('wx-dot')) map.addLayer({id:'wx-dot',type:'circle',source:'wx',
-    layout:{visibility: wxVisible?'visible':'none'},
+  const wxVisInit = wxVisible ? 'visible' : 'none';
+  const wxWet = ['match',['get','sev'],['rain','heavy','storm'],true,false];
+  const wxSevColor = ['match',['get','sev'],'storm','#C026D3','heavy','#6366F1','rain','#3B82F6','#AEB8C2'];
+  if(!map.getLayer('wx-glow')) map.addLayer({id:'wx-glow',type:'circle',source:'wx',filter:wxWet,
+    layout:{visibility:wxVisInit},
     paint:{
-      'circle-color':['match',['get','sev'],'storm','#7C3AED','heavy','#2563EB','rain','#38A3E0','mist','#8AA0AE','haze','#C77D33','#AEB8BE'],
+      'circle-color':['match',['get','sev'],'storm','#C026D3','heavy','#6366F1','#3B82F6'],
       'circle-radius':['interpolate',['linear'],['zoom'],
-        10,['match',['get','sev'],'storm',5,'heavy',5,'rain',4.5,2.5],
-        14,['match',['get','sev'],'storm',10,'heavy',10,'rain',9,4.5]],
-      'circle-opacity':0.92,'circle-stroke-width':1.4,
-      'circle-stroke-color': dark?'rgba(0,0,0,.55)':'rgba(255,255,255,.92)'}});
+        9,['match',['get','sev'],'storm',16,'heavy',13,10],
+        13,['match',['get','sev'],'storm',36,'heavy',29,22]],
+      'circle-blur':0.85,'circle-opacity':0.30}});
+  if(!map.getLayer('wx-dot')) map.addLayer({id:'wx-dot',type:'circle',source:'wx',
+    layout:{visibility:wxVisInit},
+    paint:{
+      'circle-color':wxSevColor,
+      'circle-radius':['interpolate',['linear'],['zoom'],
+        9,['match',['get','sev'],'storm',5.5,'heavy',5.5,'rain',5,1.7],
+        13,['match',['get','sev'],'storm',8.5,'heavy',8.5,'rain',7.5,2.8]],
+      'circle-opacity':['match',['get','sev'],['rain','heavy','storm'],1,0.34],
+      'circle-stroke-width':['match',['get','sev'],['rain','heavy','storm'],1.7,0],
+      'circle-stroke-color': dark?'rgba(8,12,20,.82)':'rgba(255,255,255,.95)'}});
 
   refreshNearestSource(); refreshTrackSource(); refreshRouteSource(); refreshWxSource();
 }
@@ -303,7 +315,7 @@ function wxModal(){   // islandwide summary — safety-forward: most severe cond
   if(cand) return cand;
   let k=null,m=-1; for(const x in c){ if(c[x]>m){m=c[x];k=x;} } return k;
 }
-function onWeather(){ updateWxUI(); refreshWxSource(); updateRouteWx(); }
+function onWeather(){ updateWxUI(); refreshWxSource(); updateRouteWx(); if(wxVisible) wxCapUpdate(); }
 function updateWxUI(){
   const row=$('wxRow'), adv=$('wxAdv');
   if(!WX||!WX.areas.length){ row.hidden=true; adv.hidden=true; updatePeek(); return; }
@@ -317,13 +329,40 @@ function updateWxUI(){
   if(msg){ adv.textContent=msg; adv.dataset.sev=info.sev; adv.hidden=false; } else adv.hidden=true;
   updatePeek();
 }
+function routeWeather(coords){   // scan the whole path, not just the destination
+  if(!WX||!WX.areas.length||!coords||coords.length<2) return null;
+  const rank=s=>({storm:4,heavy:3,rain:2,haze:1}[s]||0);
+  const STEP=700; let acc=0; const samples=[coords[0]];
+  for(let i=1;i<coords.length;i++){
+    acc += haversine(coords[i-1][1],coords[i-1][0],coords[i][1],coords[i][0]);
+    if(acc>=STEP){ samples.push(coords[i]); acc=0; }
+  }
+  const last=coords[coords.length-1];
+  if(samples[samples.length-1]!==last) samples.push(last);
+  let worst=null, wr=-1, wet=0, anyDry=false;
+  for(const p of samples){
+    const a=nearestForecast(p[1],p[0]); if(!a) continue;
+    const info=wxInfo(a.forecast), r=rank(info.sev);
+    if(r>=2) wet++; else anyDry=true;
+    if(r>wr){ wr=r; worst={area:a.area, forecast:a.forecast, sev:info.sev, emoji:info.emoji}; }
+  }
+  return {worst, wet, anyDry, pervasive:(wet/samples.length)>0.6, n:samples.length};
+}
 function updateRouteWx(){
   const el=$('rtWx'); if(!el) return;
-  if(views.viewRoute.hidden || !routeEnd || !WX || !WX.areas.length){ el.hidden=true; return; }
-  const n=nearestForecast(routeEnd[1], routeEnd[0]); if(!n){ el.hidden=true; return; }
-  const info=wxInfo(n.forecast);
-  el.innerHTML=`<span class="wx-ic">${info.emoji}</span><span>${esc(n.forecast)} at ${esc(n.area)} · next 2h</span>`;
-  el.dataset.sev=info.sev; el.hidden=false;
+  const coords = routeResult && routeResult.coords;
+  if(views.viewRoute.hidden || !coords || !WX || !WX.areas.length){ el.hidden=true; return; }
+  const rw=routeWeather(coords); if(!rw||!rw.worst){ el.hidden=true; return; }
+  const w=rw.worst;
+  let txt;
+  if(w.sev==='storm'||w.sev==='heavy'||w.sev==='rain'){
+    txt = rw.pervasive ? (w.forecast+' along your route') : (w.forecast+' near '+w.area);
+    if(!rw.pervasive && rw.anyDry) txt += ' · drier elsewhere';
+  } else {
+    txt = w.forecast+' along your route';
+  }
+  el.innerHTML=`<span class="wx-ic">${w.emoji}</span><span>${esc(txt)} · next 2h</span>`;
+  el.dataset.sev=w.sev; el.hidden=false;
 }
 function refreshWxSource(){
   const src=map.getSource&&map.getSource('wx'); if(!src) return;
@@ -331,14 +370,22 @@ function refreshWxSource(){
   src.setData({type:'FeatureCollection', features: WX.areas.map(a=>{ const i=wxInfo(a.forecast);
     return {type:'Feature', geometry:{type:'Point', coordinates:[a.lng,a.lat]}, properties:{area:a.area, forecast:a.forecast, sev:i.sev, emoji:i.emoji}}; })});
 }
-function setWxVis(){ if(map.getLayer('wx-dot')) map.setLayoutProperty('wx-dot','visibility', wxVisible?'visible':'none'); }
-function toggleWx(row){
-  wxVisible=!wxVisible;
-  row.classList.toggle('off', !wxVisible);
-  row.querySelector('.sw').setAttribute('aria-pressed', String(wxVisible));
-  setWxVis();
-  if(wxVisible){ loadWeather(); if(WX) toast('Weather overlay on — tap a dot for the area forecast'); }
+function wxCapUpdate(){ const t=$('wxCapTime'); if(t) t.textContent = wxEndLabel() ? ('until '+wxEndLabel()) : ''; }
+function setWxVis(){
+  const v = wxVisible ? 'visible' : 'none';
+  ['wx-glow','wx-dot'].forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',v); });
+  const cap=$('wxCaption'); if(cap) cap.hidden = !wxVisible;
+  const btn=$('wxBtn'); if(btn){ btn.classList.toggle('active', wxVisible); btn.setAttribute('aria-pressed', String(wxVisible)); }
+  if(wxVisible) wxCapUpdate();
 }
+function setWxOverlay(on){ wxVisible=on; setWxVis(); if(on) loadWeather(); }
+$('wxBtn').addEventListener('click', ()=>{
+  setWxOverlay(!wxVisible);
+  if(!wxVisible){ toast('Rain map off'); return; }
+  if(!WX){ toast('Rain map on — loading forecast…'); return; }
+  const wet = WX.areas.some(a=>['rain','heavy','storm'].includes(wxInfo(a.forecast).sev));
+  toast(wet ? 'Rain map on — glowing areas have showers now' : 'Rain map on — no showers on the island right now');
+});
 $('wxRefresh').addEventListener('click', ()=>{
   const b=$('wxRefresh'); b.classList.add('spin');
   loadWeather(true).finally(()=>setTimeout(()=>b.classList.remove('spin'),600));
@@ -410,7 +457,6 @@ function buildLegend(){
   });
   appendRailRow();
   appendCpnRow();
-  appendWxRow();
 }
 function ensureExtrasSep(){
   const body=$('lgBody'); if(!body || !body.children.length) return;
@@ -472,20 +518,6 @@ function setCpnVis(){
   const v = cpnVisible ? 'visible' : 'none';
   if(map.getLayer('cpn-line'))   map.setLayoutProperty('cpn-line','visibility',v);
   if(map.getLayer('cpn-casing')) map.setLayoutProperty('cpn-casing','visibility',v);
-}
-function appendWxRow(){
-  const body=$('lgBody'); if(!body || !body.children.length) return;
-  if(body.querySelector('.lrow-wx')) return;   // already added
-  ensureExtrasSep();
-  const row=document.createElement('div'); row.className='lrow lrow-wx off';   // opt-in: starts hidden
-  row.innerHTML =
-    `<button class="sw" aria-pressed="false" aria-label="Toggle weather overlay"><i style="background:var(--wx-rain)"></i></button>`+
-    `<button class="meta" aria-label="Toggle weather overlay"><span class="name">Weather</span><span class="km">Rain map · next 2 h · NEA</span></button>`+
-    `<button class="zoom" aria-label="Refresh forecast"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v5h-5"/></svg></button>`;
-  row.querySelector('.sw').addEventListener('click', ()=>toggleWx(row));
-  row.querySelector('.meta').addEventListener('click', ()=>toggleWx(row));
-  row.querySelector('.zoom').addEventListener('click', ()=>loadWeather(true));
-  body.appendChild(row);   // weather last, after cycling paths
 }
 function toggleLoop(i,row){
   hidden.has(i) ? hidden.delete(i) : hidden.add(i);

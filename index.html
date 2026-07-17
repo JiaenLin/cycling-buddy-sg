@@ -28,6 +28,9 @@
       <div class="wm"><b>Cycling Buddy</b><span>PCN · Singapore</span></div>
     </div>
     <div class="topbtns">
+      <button class="iconbtn" id="wxBtn" aria-label="Rain map" aria-pressed="false" title="Rain map — next 2 hours">
+        <svg viewBox="0 0 24 24"><path d="M7 16.5a4.5 4.5 0 0 1-.4-8.98 6 6 0 0 1 11.5 1.48A3.5 3.5 0 0 1 17.5 16"/><path d="M8 19l-1.2 2.2M12.2 19l-1.2 2.2M16.4 19l-1.2 2.2"/></svg>
+      </button>
       <button class="iconbtn" id="installBtn" hidden aria-label="Install app" title="Install">
         <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
       </button>
@@ -45,6 +48,12 @@
     </div>
     <div class="lg-body" id="lgBody"></div>
   </section>
+
+  <div class="wx-cap" id="wxCaption" hidden aria-hidden="true">
+    <span class="wx-scale"><i></i><i></i><i></i></span>
+    <span>Showers → thundery</span>
+    <span class="wx-cap-time" id="wxCapTime"></span>
+  </div>
 
   <div class="fabs">
     <button class="fab" id="routeBtn" aria-label="Plan a route" title="Plan a route">
@@ -137,7 +146,7 @@
       <li><span class="kbd">◎</span> Locate — live position + the nearest connector.</li>
       <li><span class="kbd">➤</span> Compass — with GPS on, one tap zooms in and turns the map to face the way you're heading. Tap again for north-up. Twist with two fingers to rotate any time.</li>
       <li><span class="kbd">⦚</span> Route — tap a start &amp; destination for offline turn-by-turn that prefers park connectors.</li>
-      <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and your route's destination), with a heads-up when thundery showers are likely. Toggle the <b>Weather</b> rain-map in the Loops panel.</li>
+      <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and along your planned route), with a heads-up when thundery showers are likely. Tap the <b>cloud</b> button (top bar) for a rain-map of the whole island.</li>
       <li><span class="kbd">●</span> Record — traces your ride with distance, time and speed; export GPX.</li>
       <li>Toggle any loop in the Loops panel; tap its <span class="kbd">⤢</span> to frame it.</li>
       <li><span class="kbd">⬇</span> Install — tap the install button (top bar) to add it to your home screen and run it offline like a native app.</li>
