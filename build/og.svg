@@ -9,10 +9,10 @@
 
   <!-- stylised PCN loops: coloured route lines sweeping across the card -->
   <g fill="none" stroke-linecap="round" opacity="0.9">
-    <path d="M -40 500 C 240 420 380 560 640 480 S 1080 420 1260 470" stroke="#FFD23F" stroke-width="10"/>
-    <path d="M -40 545 C 260 470 420 600 680 525 S 1100 470 1260 515" stroke="#37BA66" stroke-width="10"/>
-    <path d="M -40 590 C 280 520 460 640 720 570 S 1120 520 1260 560" stroke="#14A6C2" stroke-width="10"/>
-    <path d="M -40 455 C 220 375 340 515 600 435 S 1060 375 1260 425" stroke="#A76BFF" stroke-width="10" opacity="0.75"/>
+    <path d="M -40 532 C 240 492 380 572 640 532 S 1080 492 1260 522" stroke="#A76BFF" stroke-width="10" opacity="0.75"/>
+    <path d="M -40 572 C 240 532 380 612 640 572 S 1080 532 1260 562" stroke="#FFD23F" stroke-width="10"/>
+    <path d="M -40 612 C 240 572 380 652 640 612 S 1080 572 1260 602" stroke="#37BA66" stroke-width="10"/>
+    <path d="M -40 652 C 240 612 380 692 640 652 S 1080 612 1260 642" stroke="#14A6C2" stroke-width="10"/>
   </g>
 
   <!-- brand glyph: dashed loop + hub -->
@@ -22,22 +22,28 @@
   </g>
 
   <text x="220" y="175" font-family="Segoe UI, Arial, sans-serif" font-size="76" font-weight="700" fill="#EAF2ED">Cycling Buddy SG</text>
-  <text x="222" y="245" font-family="Segoe UI, Arial, sans-serif" font-size="38" fill="#9FB4A9">Singapore Park Connector cycling map</text>
+  <text x="222" y="245" font-family="Segoe UI, Arial, sans-serif" font-size="38" fill="#9FB4A9">The free cycling map for Singapore</text>
 
-  <g font-family="Segoe UI, Arial, sans-serif" font-size="30" fill="#EAF2ED">
-    <g transform="translate(222,310)">
-      <circle cx="14" cy="-10" r="6" fill="#FFD23F"/><text x="38" y="0">7 PCN loops, colour-coded</text>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="29" fill="#EAF2ED">
+    <g transform="translate(222,312)">
+      <circle cx="14" cy="-10" r="6" fill="#FFD23F"/><text x="38" y="0">7 park connector loops</text>
     </g>
-    <g transform="translate(222,364)">
-      <circle cx="14" cy="-10" r="6" fill="#37BA66"/><text x="38" y="0">Offline turn-by-turn routing</text>
+    <g transform="translate(222,362)">
+      <circle cx="14" cy="-10" r="6" fill="#37BA66"/><text x="38" y="0">305 parks &amp; nature reserves</text>
     </g>
-    <g transform="translate(700,310)">
-      <circle cx="14" cy="-10" r="6" fill="#14A6C2"/><text x="38" y="0">Live rain radar (NEA)</text>
+    <g transform="translate(222,412)">
+      <circle cx="14" cy="-10" r="6" fill="#A76BFF"/><text x="38" y="0">Offline turn-by-turn routes</text>
     </g>
-    <g transform="translate(700,364)">
+    <g transform="translate(700,312)">
+      <circle cx="14" cy="-10" r="6" fill="#14A6C2"/><text x="38" y="0">Live NEA rain radar</text>
+    </g>
+    <g transform="translate(700,362)">
+      <circle cx="14" cy="-10" r="6" fill="#E2E8F0"/><text x="38" y="0">396 bike parking racks</text>
+    </g>
+    <g transform="translate(700,412)">
       <circle cx="14" cy="-10" r="6" fill="#FF3B5C"/><text x="38" y="0">Record rides, export GPX</text>
     </g>
   </g>
 
-  <text x="222" y="430" font-family="Segoe UI, Arial, sans-serif" font-size="26" fill="#6E8177">Free · No app store · Installs from the browser</text>
+  <text x="222" y="470" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#8A9C91">Free · No app store · Installs from the browser</text>
 </svg>

@@ -1,7 +1,7 @@
 {
-  "name": "Cycling Buddy SG — Singapore Park Connectors",
+  "name": "Cycling Buddy SG — Singapore Cycling Map",
   "short_name": "Cycling Buddy",
-  "description": "Plan, find and ride Singapore's Park Connector Network. Offline-ready cycling companion.",
+  "description": "The free cycling map for Singapore: park connectors, cycling paths, parks & reserves, bike parking, offline routes and live rain radar.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

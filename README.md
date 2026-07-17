@@ -1,10 +1,15 @@
-# Cycling Buddy SG — Singapore Park Connector cycling companion
+# Cycling Buddy SG — the free cycling map for Singapore
 
 **Free for everyone:** https://jiaenlin.github.io/cycling-buddy-sg/
 
-An installable, **offline-capable** cycling map for Singapore's Park Connector Network (PCN).
-See all 7 loops, find the nearest connector, plan routes that prefer park connectors, check
-live rain, record rides — on a real street basemap, no app store, no sign-up, no ads.
+The whole of cycling Singapore on one installable, **offline-capable** map: the 7 Park Connector
+(PCN) loops, LTA's cycling paths, the Rail Corridor, every park and nature reserve, and bike
+parking island-wide. Plan routes offline, check the rain before you go, find your nearest
+connector, record your ride — on a real street basemap. No app store, no sign-up, no ads, no
+tracking cookies.
+
+**In numbers:** 334.8 km of park connectors · 432.9 km of cycling paths · 24.2 km Rail Corridor ·
+305 parks & nature reserves (64.7 km²) · 396 bike racks (19,329 spaces) · live NEA rain radar.
 
 ![Cycling Buddy SG](icons/og.png)
 
@@ -24,8 +29,9 @@ live rain, record rides — on a real street basemap, no app store, no sign-up, 
 - **Private by design** — your location never leaves your device. No accounts, no tracking cookies.
 
 ## Why
-Singapore has ~300 km of park connectors, but no free map that treats the PCN as a
-first-class cycling network — routable, offline, and rain-aware. This app fills that gap.
+Singapore's cycling network is scattered across separate agencies and datasets — NParks runs the
+park connectors and parks, LTA the cycling paths and bike racks, NEA the weather. No free map put
+them together and made them *routable, offline and rain-aware*. This app does.
 
 ## Run locally
 Any static server over HTTP works (the service worker + geolocation need `localhost` or HTTPS):

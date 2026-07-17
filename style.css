@@ -106,7 +106,9 @@ body{
 .lrow.off .name{color:var(--ink-faint)}
 .lrow .meta{flex:1 1 auto;min-width:0;cursor:pointer;background:none;border:0;text-align:left;padding:0;color:inherit;font-family:inherit}
 .lrow .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.lrow .km{font-size:11px;color:var(--ink-dim);font-variant-numeric:tabular-nums;font-family:var(--mono)}
+/* deliberately allowed to wrap: the panel is 188px on phones and truncating "6.7 km closed" or
+   "19,329 spaces" loses the number that makes the row worth reading */
+.lrow .km{font-size:11px;color:var(--ink-dim);font-variant-numeric:tabular-nums;font-family:var(--mono);line-height:1.35}
 .lrow .zoom{opacity:.5;width:26px;height:26px;border-radius:7px;border:0;background:transparent;color:var(--ink-dim);cursor:pointer;display:grid;place-items:center;flex:0 0 auto}
 .lrow:hover .zoom{opacity:1}
 .lrow .zoom svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -158,7 +160,11 @@ body{
 /* nearest bike rack — same card idiom as the weather row */
 .rack-card{cursor:pointer}
 .rk-ic{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--rack-fill);color:var(--rack-glyph);font-size:13px;font-weight:800;line-height:1}
-.sw-rack{display:grid;place-items:center;width:13px;height:13px;border-radius:50%;background:var(--rack-fill);color:var(--rack-glyph);font-size:8.5px;font-weight:800;line-height:1;font-style:normal;flex:0 0 auto}
+/* The rack swatch is a round "P" badge, not the 14x4 line bar the other layers use, so it has to
+   outrank `.lrow .sw i` and `.pcn-popup i.sw` — hence the long selectors. */
+.sw-rack{display:grid;place-items:center;border-radius:50%;background:var(--rack-fill);color:var(--rack-glyph);font-weight:800;line-height:1;font-style:normal;flex:0 0 auto}
+.lrow .sw i.sw-rack{width:16px;height:16px;border-radius:50%;font-size:10px}
+.pcn-popup i.sw.sw-rack{width:13px;height:13px;border-radius:50%;font-size:8.5px}
 .wx-ic{font-size:22px;line-height:1;width:26px;text-align:center;flex:0 0 auto}
 .wx-tx{display:flex;flex-direction:column;min-width:0;flex:1;gap:1px}
 .wx-main{font-weight:650;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

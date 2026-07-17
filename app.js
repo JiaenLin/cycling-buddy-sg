@@ -603,7 +603,7 @@ function appendParksRow(){
   const row=document.createElement('div'); row.className='lrow lrow-parks';
   row.innerHTML =
     `<button class="sw" aria-pressed="true" aria-label="Toggle parks and nature reserves"><i style="background:var(--park)"></i></button>`+
-    `<button class="meta" aria-label="Frame parks"><span class="name">Parks &amp; reserves</span><span class="km">${PARKS_META.count} · ${PARKS_META.total_km2.toFixed(1)} km²</span></button>`+
+    `<button class="meta" aria-label="Frame parks"><span class="name">Parks &amp; reserves</span><span class="km">${PARKS_META.total_km2.toFixed(1)} km²</span></button>`+
     `<button class="zoom" aria-label="Frame parks"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg></button>`;
   row.querySelector('.sw').addEventListener('click', ()=>toggleParks(row));
   const frame=()=>map.fitBounds(PARKS_META.bounds,{padding:{top:80,bottom:180,left:40,right:40}});
@@ -631,7 +631,7 @@ function appendRacksRow(){
   const row=document.createElement('div'); row.className='lrow lrow-racks';
   row.innerHTML =
     `<button class="sw" aria-pressed="true" aria-label="Toggle bike parking"><i class="sw-rack">P</i></button>`+
-    `<button class="meta" aria-label="Frame bike parking"><span class="name">Bike parking</span><span class="km">${RACKS_META.count} racks · ${RACKS_META.spaces.toLocaleString()} spaces</span></button>`+
+    `<button class="meta" aria-label="Frame bike parking"><span class="name">Bike parking</span><span class="km">${RACKS_META.spaces.toLocaleString()} spaces</span></button>`+
     `<button class="zoom" aria-label="Frame bike parking"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg></button>`;
   row.querySelector('.sw').addEventListener('click', ()=>toggleRacks(row));
   const frame=()=>map.fitBounds(RACKS_META.bounds,{padding:{top:80,bottom:180,left:40,right:40}});
@@ -665,11 +665,12 @@ function appendRailRow(){
   if(body.querySelector('.lrow-rail')) return;                // already added
   ensureExtrasSep();
   const sk=$('sheetRailKm'); if(sk) sk.textContent=RAIL_META.total_km.toFixed(1);
-  const closedTxt = RAIL_META.closed_km>0 ? ` · ${RAIL_META.closed_km.toFixed(1)} km closed` : '';
   const row=document.createElement('div'); row.className='lrow lrow-rail';
+  // just the distance — the 6.7 km closure is carried by the dashed style, the tap popup and the
+  // About sheet, and a second fact here wraps the 188px phone panel onto two lines
   row.innerHTML =
     `<button class="sw" aria-pressed="true" aria-label="Toggle Rail Corridor"><i style="background:var(--rail)"></i></button>`+
-    `<button class="meta" aria-label="Frame Rail Corridor"><span class="name">Rail Corridor</span><span class="km">${RAIL_META.total_km.toFixed(1)} km${closedTxt}</span></button>`+
+    `<button class="meta" aria-label="Frame Rail Corridor"><span class="name">Rail Corridor</span><span class="km">${RAIL_META.total_km.toFixed(1)} km</span></button>`+
     `<button class="zoom" aria-label="Frame Rail Corridor"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg></button>`;
   row.querySelector('.sw').addEventListener('click', ()=>toggleRail(row));
   const frame=()=>map.fitBounds(RAIL_META.bounds,{padding:{top:80,bottom:180,left:40,right:40}});
@@ -696,7 +697,7 @@ function appendCpnRow(){
   const row=document.createElement('div'); row.className='lrow lrow-cpn';
   row.innerHTML =
     `<button class="sw" aria-pressed="true" aria-label="Toggle cycling paths"><i style="background:var(--cpn)"></i></button>`+
-    `<button class="meta" aria-label="Frame cycling paths"><span class="name">Cycling paths</span><span class="km">${CPN_META.total_km.toFixed(1)} km · LTA</span></button>`+
+    `<button class="meta" aria-label="Frame cycling paths"><span class="name">Cycling paths</span><span class="km">${CPN_META.total_km.toFixed(1)} km</span></button>`+
     `<button class="zoom" aria-label="Frame cycling paths"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg></button>`;
   row.querySelector('.sw').addEventListener('click', ()=>toggleCpn(row));
   const frame=()=>map.fitBounds(CPN_META.bounds,{padding:{top:80,bottom:180,left:40,right:40}});
@@ -729,7 +730,8 @@ function zoomLoop(i){
   if(!b.isEmpty()) map.fitBounds(b, {padding:{top:80,bottom:180,left:40,right:40}, maxZoom:15});
 }
 function fillStats(){
-  $('totalKm').textContent = META.total_km.toFixed(1)+' km';
+  // no total in the legend header: the panel lists paths/parks/parking too, so a PCN-only
+  // figure there would read as the total. The dock stat below carries it, labelled.
   $('stKm').textContent = META.total_km.toFixed(0)+' km';
   $('stSeg').textContent = META.seg_count.toLocaleString();
   $('sheetKm').textContent = META.total_km.toFixed(1);
