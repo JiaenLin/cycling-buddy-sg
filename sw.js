@@ -1,5 +1,5 @@
 /* Cycling Buddy SG PWA service worker — offline app shell + runtime basemap tile cache */
-const VERSION = 'cbsg-v4';
+const VERSION = 'cbsg-v5';
 const SHELL = VERSION + '-shell';
 const TILES = VERSION + '-tiles';
 const TILE_MAX = 800; // cap runtime tile cache entries
@@ -43,6 +43,17 @@ self.addEventListener('fetch', e => {
   // App navigations -> serve cached shell (offline-first for the page itself)
   if(req.mode === 'navigate'){
     e.respondWith(caches.match('index.html').then(r => r || fetch(req)));
+    return;
+  }
+
+  // Live weather (NEA 2-hr forecast) -> network-first, fall back to last cached response offline
+  if(url.hostname === 'api-open.data.gov.sg'){
+    e.respondWith(
+      fetch(req).then(res => {
+        if(res && res.ok){ const copy = res.clone(); caches.open(TILES).then(c => c.put(req, copy)); }
+        return res;
+      }).catch(() => caches.match(req))
+    );
     return;
   }
 

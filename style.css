@@ -14,6 +14,7 @@
   --rec:#E02749;
   --cpn:#5E7169;
   --rail:#4A3226;
+  --wx-storm:#6D28D9; --wx-heavy:#1D4ED8; --wx-rain:#0E7490; --wx-haze:#B45309; --wx-mist:#64748B;
   --shadow:0 6px 20px rgba(18,32,24,.16), 0 1px 3px rgba(18,32,24,.10);
   --radius:16px;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono",Menlo,Consolas,monospace;
@@ -34,6 +35,7 @@
   --rec:#FF3B5C;
   --cpn:#84958D;
   --rail:#DDD2C0;
+  --wx-storm:#A78BFA; --wx-heavy:#60A5FA; --wx-rain:#38BDF8; --wx-haze:#FBBF24; --wx-mist:#94A3B8;
   --shadow:0 8px 26px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4);
 }
 
@@ -140,6 +142,27 @@ body{
 .stat + .stat{border-left:1px solid var(--line);padding-left:14px;margin-left:14px}
 .stat .v{font-family:var(--mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
 .stat .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+
+/* weather (NEA 2-hour forecast) */
+.wx-card{display:flex;align-items:center;gap:11px;margin-top:12px;padding:9px 11px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
+.wx-ic{font-size:22px;line-height:1;width:26px;text-align:center;flex:0 0 auto}
+.wx-tx{display:flex;flex-direction:column;min-width:0;flex:1;gap:1px}
+.wx-main{font-weight:650;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wx-sub{font-size:12px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wx-rf{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:var(--ink-dim);cursor:pointer;padding:6px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center}
+.wx-rf svg{width:15px;height:15px}
+.wx-rf:active{transform:scale(.88)}
+.wx-rf.spin svg{animation:wxspin .8s linear infinite}
+@keyframes wxspin{to{transform:rotate(360deg)}}
+.wx-adv,.wx-note{margin-top:8px;padding:8px 11px;border-radius:10px;font-size:12.5px;font-weight:600;line-height:1.32;display:flex;gap:8px;align-items:center}
+.wx-note{margin-top:10px;font-size:12px;font-weight:600}
+.wx-note .wx-ic{font-size:16px;width:18px}
+.wx-adv[data-sev="storm"],.wx-note[data-sev="storm"]{background:color-mix(in srgb,var(--wx-storm) 15%,transparent);color:var(--wx-storm)}
+.wx-adv[data-sev="heavy"],.wx-note[data-sev="heavy"]{background:color-mix(in srgb,var(--wx-heavy) 15%,transparent);color:var(--wx-heavy)}
+.wx-adv[data-sev="rain"],.wx-note[data-sev="rain"]{background:color-mix(in srgb,var(--wx-rain) 15%,transparent);color:var(--wx-rain)}
+.wx-adv[data-sev="haze"],.wx-note[data-sev="haze"]{background:color-mix(in srgb,var(--wx-haze) 15%,transparent);color:var(--wx-haze)}
+.wx-adv[data-sev="mist"],.wx-note[data-sev="mist"]{background:color-mix(in srgb,var(--wx-mist) 15%,transparent);color:var(--wx-mist)}
+
 .rec-actions{display:flex;gap:9px;margin-top:12px}
 .mini-x{width:28px;height:28px;border-radius:8px;border:0;background:transparent;color:var(--ink-dim);display:grid;place-items:center;cursor:pointer;padding:0}
 .mini-x svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}

@@ -33,6 +33,8 @@ let recording=false, track=[], recDist=0, recStart=0, recTimer=null, lastPt=null
 // compass / heading-follow ("face direction") mode
 let headingMode=false, deviceHeading=null, deviceHeadingTs=0, camRAF=null;
 const camTarget={center:null, bearing:null};
+// weather (NEA 2-hour forecast)
+let WX=null, wxLoading=null, wxVisible=false;
 
 // ---------- theme (before map init) ----------
 const savedTheme = localStorage.getItem('theme');
@@ -68,10 +70,18 @@ map.on('load', () => { mapLoaded=true; tryFit(); });
 map.on('click', e => {
   if(routeMode){ handleRouteClick([e.lngLat.lng, e.lngLat.lat]); return; }
   const layers=['pcn-line','rail-open','rail-closed','cpn-line'].filter(id=>map.getLayer(id));
+  if(wxVisible && map.getLayer('wx-dot')) layers.push('wx-dot');
   if(!layers.length) return;
   const hits=map.queryRenderedFeatures(e.point,{layers});
   if(!hits.length) return;
   const isRail=id=>id==='rail-open'||id==='rail-closed';
+  const wxHit=hits.find(h=>h.layer.id==='wx-dot');
+  if(wxHit){
+    const p=wxHit.properties, end=wxEndLabel();
+    const html=`<b>${p.emoji} ${esc(p.area)}</b><span class="pk">${esc(p.forecast)}${end?(' · until '+end):' · next 2h'}</span>`;
+    new maplibregl.Popup({className:'pcn-popup', closeButton:true, maxWidth:'240px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
+    return;
+  }
   const f=hits.find(h=>h.layer.id==='pcn-line') || hits.find(h=>isRail(h.layer.id)) || hits[0];
   let html;
   if(f.layer.id==='pcn-line'){
@@ -85,7 +95,7 @@ map.on('click', e => {
   }
   new maplibregl.Popup({className:'pcn-popup', closeButton:true, maxWidth:'240px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 });
-['pcn-line','cpn-line','rail-open','rail-closed'].forEach(id=>{
+['pcn-line','cpn-line','rail-open','rail-closed','wx-dot'].forEach(id=>{
   map.on('mouseenter', id, () => map.getCanvas().style.cursor='pointer');
   map.on('mouseleave', id, () => map.getCanvas().style.cursor='');
 });
@@ -146,7 +156,19 @@ function addLayers(){
       'line-color':['match',['get','kind'], 'road', ROUTE_ROAD, 'foot', ROUTE_FOOT, getVar('--accent')],
       'line-width':['interpolate',['linear'],['zoom'],11,3.5,16,7.5]}});
 
-  refreshNearestSource(); refreshTrackSource(); refreshRouteSource();
+  // Weather overlay (NEA 2-hour forecast) — opt-in dots coloured by rain severity; topmost so they're tappable
+  if(!map.getSource('wx')) map.addSource('wx',{type:'geojson',data:emptyFC()});
+  if(!map.getLayer('wx-dot')) map.addLayer({id:'wx-dot',type:'circle',source:'wx',
+    layout:{visibility: wxVisible?'visible':'none'},
+    paint:{
+      'circle-color':['match',['get','sev'],'storm','#7C3AED','heavy','#2563EB','rain','#38A3E0','mist','#8AA0AE','haze','#C77D33','#AEB8BE'],
+      'circle-radius':['interpolate',['linear'],['zoom'],
+        10,['match',['get','sev'],'storm',5,'heavy',5,'rain',4.5,2.5],
+        14,['match',['get','sev'],'storm',10,'heavy',10,'rain',9,4.5]],
+      'circle-opacity':0.92,'circle-stroke-width':1.4,
+      'circle-stroke-color': dark?'rgba(0,0,0,.55)':'rgba(255,255,255,.92)'}});
+
+  refreshNearestSource(); refreshTrackSource(); refreshRouteSource(); refreshWxSource();
 }
 function refreshRouteSource(){
   const src=map.getSource&&map.getSource('route'); if(!src) return;
@@ -183,6 +205,7 @@ function onPos(e){
   const hd = (c.heading!=null && !isNaN(c.heading)) ? c.heading : null; // GPS course-over-ground
   user={lat:c.latitude, lng:c.longitude, acc:c.accuracy, speed:c.speed, heading:hd};
   computeNearest(); updateNearUI(); refreshNearestSource();
+  loadWeather(); updateWxUI();   // forecast for the area you're now in (throttled fetch)
   if(recording) pushTrack(user, e.timestamp);
   if(headingMode){ camTarget.center=[user.lng,user.lat]; const b=currentHeading(); if(b!=null) camTarget.bearing=b; }
 }
@@ -222,6 +245,105 @@ function refreshNearestSource(){
     {type:'Feature', geometry:{type:'Point', coordinates:[nearest.lng,nearest.lat]}, properties:{color:col}}
   ]});
 }
+
+// ---------- weather (NEA 2-hour forecast · data.gov.sg, CORS-open, no key) ----------
+const WX_URL='https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast';
+const WX_TTL=10*60*1000;   // refetch at most every 10 min
+const WX_ADVICE={
+  storm:'Thundery showers forecast — lightning risk, best not to cycle.',
+  heavy:'Heavy rain forecast — poor visibility, consider waiting it out.',
+  rain:'Showers likely in the next 2 hours — pack a poncho.',
+  haze:'Hazy — check the PSI before a long ride.'
+};
+function wxInfo(f){
+  const s=String(f||'');
+  if(/thundery/i.test(s))               return {emoji:'⛈️', sev:'storm'};
+  if(/heavy\s+(rain|shower)/i.test(s))  return {emoji:'🌧️', sev:'heavy'};
+  if(/(rain|shower)/i.test(s))          return {emoji:'🌦️', sev:'rain'};
+  if(/(fog|mist)/i.test(s))             return {emoji:'🌫️', sev:'mist'};
+  if(/haz/i.test(s))                    return {emoji:'🌫️', sev:'haze'};
+  if(/windy/i.test(s))                  return {emoji:'🌬️', sev:'wind'};
+  if(/partly\s+cloudy/i.test(s))        return {emoji:'⛅', sev:'cloud'};
+  if(/cloudy/i.test(s))                 return {emoji:'☁️', sev:'cloud'};
+  if(/night/i.test(s))                  return {emoji:'🌙', sev:'clear'};
+  return {emoji:'☀️', sev:'clear'};     // Fair / Fair and Warm / Fair (Day)
+}
+// last snapshot for instant/offline display
+try{ const s=JSON.parse(localStorage.getItem('wx')||'null'); if(s && s.areas && s.areas.length) WX=s; }catch(e){}
+function wxIsStale(){ return !WX || !navigator.onLine || (Date.now()-(WX.at||0))>35*60*1000; }
+function wxEndLabel(){ if(WX && WX.validText){ const p=WX.validText.split(/\s+to\s+/i); if(p[1]) return p[1].trim(); } return ''; }
+function loadWeather(force){
+  if(!force && WX && (Date.now()-(WX.at||0))<WX_TTL) return Promise.resolve(WX);
+  if(wxLoading) return wxLoading;
+  wxLoading = fetch(WX_URL,{headers:{Accept:'application/json'}})
+    .then(r=>{ if(!r.ok) throw new Error('http'); return r.json(); })
+    .then(j=>{
+      if(!j || j.code!==0 || !j.data) throw new Error('bad');
+      const meta={}; (j.data.area_metadata||[]).forEach(a=>{ const L=a.label_location||{}; if(L.latitude!=null) meta[a.name]={lat:L.latitude,lng:L.longitude}; });
+      const it=(j.data.items||[])[0]||{};
+      const areas=(it.forecasts||[]).map(f=>{ const m=meta[f.area]||{}; return {area:f.area, forecast:f.forecast, lat:m.lat, lng:m.lng}; }).filter(a=>a.lat!=null);
+      if(areas.length){ WX={areas, validText:(it.valid_period||{}).text||'', at:Date.now()}; try{ localStorage.setItem('wx', JSON.stringify(WX)); }catch(e){} }
+      wxLoading=null; onWeather(); return WX;
+    })
+    .catch(()=>{ wxLoading=null; onWeather(); return WX; });  // keep last snapshot on failure
+  return wxLoading;
+}
+function nearestForecast(lat,lng){
+  if(!WX||!WX.areas.length) return null;
+  const mLat=110540, mLng=111320*Math.cos(lat*D2R); let best=Infinity,b=null;
+  for(const a of WX.areas){ const dx=(a.lng-lng)*mLng, dy=(a.lat-lat)*mLat, d=dx*dx+dy*dy; if(d<best){best=d;b=a;} }
+  return b;
+}
+function wxModal(){   // islandwide summary — safety-forward: most severe condition that covers >=25% of areas, else the most common
+  if(!WX||!WX.areas.length) return null;
+  const c={}; for(const a of WX.areas) c[a.forecast]=(c[a.forecast]||0)+1;
+  const n=WX.areas.length, rank=f=>({storm:4,heavy:3,rain:2,haze:1}[wxInfo(f).sev]||0);
+  let cand=null;
+  for(const k in c){ if(c[k]>=n*0.25 && (!cand || rank(k)>rank(cand) || (rank(k)===rank(cand)&&c[k]>c[cand]))) cand=k; }
+  if(cand) return cand;
+  let k=null,m=-1; for(const x in c){ if(c[x]>m){m=c[x];k=x;} } return k;
+}
+function onWeather(){ updateWxUI(); refreshWxSource(); updateRouteWx(); }
+function updateWxUI(){
+  const row=$('wxRow'), adv=$('wxAdv');
+  if(!WX||!WX.areas.length){ row.hidden=true; adv.hidden=true; updatePeek(); return; }
+  const cond = user ? nearestForecast(user.lat,user.lng).forecast : wxModal();
+  const place = user ? nearestForecast(user.lat,user.lng).area : 'Islandwide';
+  const info=wxInfo(cond), end=wxEndLabel();
+  $('wxIc').textContent=info.emoji; $('wxMain').textContent=cond;
+  $('wxSub').textContent = place + (end?(' · until '+end):'') + (wxIsStale()?' · offline':'');
+  row.dataset.sev=info.sev; row.hidden=false;
+  const msg=WX_ADVICE[info.sev];
+  if(msg){ adv.textContent=msg; adv.dataset.sev=info.sev; adv.hidden=false; } else adv.hidden=true;
+  updatePeek();
+}
+function updateRouteWx(){
+  const el=$('rtWx'); if(!el) return;
+  if(views.viewRoute.hidden || !routeEnd || !WX || !WX.areas.length){ el.hidden=true; return; }
+  const n=nearestForecast(routeEnd[1], routeEnd[0]); if(!n){ el.hidden=true; return; }
+  const info=wxInfo(n.forecast);
+  el.innerHTML=`<span class="wx-ic">${info.emoji}</span><span>${esc(n.forecast)} at ${esc(n.area)} · next 2h</span>`;
+  el.dataset.sev=info.sev; el.hidden=false;
+}
+function refreshWxSource(){
+  const src=map.getSource&&map.getSource('wx'); if(!src) return;
+  if(!WX||!WX.areas.length){ src.setData(emptyFC()); return; }
+  src.setData({type:'FeatureCollection', features: WX.areas.map(a=>{ const i=wxInfo(a.forecast);
+    return {type:'Feature', geometry:{type:'Point', coordinates:[a.lng,a.lat]}, properties:{area:a.area, forecast:a.forecast, sev:i.sev, emoji:i.emoji}}; })});
+}
+function setWxVis(){ if(map.getLayer('wx-dot')) map.setLayoutProperty('wx-dot','visibility', wxVisible?'visible':'none'); }
+function toggleWx(row){
+  wxVisible=!wxVisible;
+  row.classList.toggle('off', !wxVisible);
+  row.querySelector('.sw').setAttribute('aria-pressed', String(wxVisible));
+  setWxVis();
+  if(wxVisible){ loadWeather(); if(WX) toast('Weather overlay on — tap a dot for the area forecast'); }
+}
+$('wxRefresh').addEventListener('click', ()=>{
+  const b=$('wxRefresh'); b.classList.add('spin');
+  loadWeather(true).finally(()=>setTimeout(()=>b.classList.remove('spin'),600));
+});
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && navigator.onLine && (!WX||(Date.now()-(WX.at||0))>WX_TTL)) loadWeather(); });
 
 // ---------- recording ----------
 function haversine(la1,lo1,la2,lo2){
@@ -288,6 +410,7 @@ function buildLegend(){
   });
   appendRailRow();
   appendCpnRow();
+  appendWxRow();
 }
 function ensureExtrasSep(){
   const body=$('lgBody'); if(!body || !body.children.length) return;
@@ -350,6 +473,20 @@ function setCpnVis(){
   if(map.getLayer('cpn-line'))   map.setLayoutProperty('cpn-line','visibility',v);
   if(map.getLayer('cpn-casing')) map.setLayoutProperty('cpn-casing','visibility',v);
 }
+function appendWxRow(){
+  const body=$('lgBody'); if(!body || !body.children.length) return;
+  if(body.querySelector('.lrow-wx')) return;   // already added
+  ensureExtrasSep();
+  const row=document.createElement('div'); row.className='lrow lrow-wx off';   // opt-in: starts hidden
+  row.innerHTML =
+    `<button class="sw" aria-pressed="false" aria-label="Toggle weather overlay"><i style="background:var(--wx-rain)"></i></button>`+
+    `<button class="meta" aria-label="Toggle weather overlay"><span class="name">Weather</span><span class="km">Rain map · next 2 h · NEA</span></button>`+
+    `<button class="zoom" aria-label="Refresh forecast"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v5h-5"/></svg></button>`;
+  row.querySelector('.sw').addEventListener('click', ()=>toggleWx(row));
+  row.querySelector('.meta').addEventListener('click', ()=>toggleWx(row));
+  row.querySelector('.zoom').addEventListener('click', ()=>loadWeather(true));
+  body.appendChild(row);   // weather last, after cycling paths
+}
 function toggleLoop(i,row){
   hidden.has(i) ? hidden.delete(i) : hidden.add(i);
   row.classList.toggle('off', hidden.has(i));
@@ -375,9 +512,15 @@ const views={viewNearest:$('viewNearest'),viewRec:$('viewRec'),viewSum:$('viewSu
 function show(v){ for(const k in views) views[k].hidden = (k!==v); updatePeek(); setDockH(); }
 function setDockH(){ document.documentElement.style.setProperty('--dockh', ($('dock').offsetHeight+14)+'px'); }
 function setDock(collapsed){ $('dock').classList.toggle('collapsed', collapsed); $('dockHandle').setAttribute('aria-expanded', String(!collapsed)); updatePeek(); setDockH(); }
+function wxPeekIcon(){
+  if(!WX || !WX.areas.length) return '';
+  const cond = user ? nearestForecast(user.lat,user.lng).forecast : wxModal();
+  const i = wxInfo(cond);
+  return ['storm','heavy','rain'].includes(i.sev) ? (i.emoji+' ') : '';
+}
 function updatePeek(){
   let t='Nearby';
-  if(!views.viewNearest.hidden) t = nearest ? ('Nearest connector · '+$('nearDist').textContent) : 'Tap ◎ to find the nearest connector';
+  if(!views.viewNearest.hidden) t = wxPeekIcon() + (nearest ? ('Nearest connector · '+$('nearDist').textContent) : 'Tap ◎ to find the nearest connector');
   else if(!views.viewRoute.hidden) t = routeResult ? ('Route · '+(routeResult.meters/1000).toFixed(1)+' km · '+Math.round(100*routeResult.cyclingPct)+'% cycling') : 'Plan a route';
   else if(!views.viewRec.hidden) t = 'Recording · '+(recDist/1000).toFixed(2)+' km';
   else if(!views.viewSum.hidden) t = 'Ride saved · '+$('sumDist').textContent+' km';
@@ -512,14 +655,14 @@ function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
   routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); resetRoutePanel(); setDock(false); ensureGraph();
+  show('viewRoute'); resetRoutePanel(); setDock(false); ensureGraph(); loadWeather();
 }
 function exitRoute(){
   routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor='';
   clearRoutePoints(); routeResult=null; refreshRouteSource(); show('viewNearest');
 }
 function rtHint(t){ const el=$('rtHint'); el.textContent=t; el.hidden=false; }
-function hideOptions(){ $('rtOptions').hidden=true; $('rtDirs').hidden=true; $('rtNotice').hidden=true; $('rtKey').hidden=true; }
+function hideOptions(){ $('rtOptions').hidden=true; $('rtDirs').hidden=true; $('rtNotice').hidden=true; $('rtKey').hidden=true; $('rtWx').hidden=true; }
 function resetRoutePanel(){ hideOptions(); routeOptions=null; rtHint('Tap the map to set your start — or use your location.'); updateRtButtons(); }
 function setPoint(which,ll){
   const color = which==='start' ? '#22B573' : (getVar('--rec')||'#e02749');
@@ -567,6 +710,7 @@ function selectRouteOption(k, fit){
   refreshRouteSource(); renderDirs(routeResult.directions); updateRtButtons();
   $('rtKey').hidden=false;
   $('rtNotice').hidden = !routeResult.hasCarWay;
+  updateRouteWx();
   updatePeek();
   if(fit){ const b=new maplibregl.LngLatBounds(); routeResult.coords.forEach(c=>b.extend(c)); map.fitBounds(b,{padding:{top:110,bottom:280,left:50,right:50}}); }
 }
@@ -659,6 +803,8 @@ if('serviceWorker' in navigator){ window.addEventListener('load', ()=> navigator
 // ---------- init ----------
 syncThemeIcon();
 updateCompassIcon();
+updateWxUI();            // show last snapshot instantly (if any)
+loadWeather();          // then refresh in the background when online
 $('dockHandle').addEventListener('click', ()=> setDock(!$('dock').classList.contains('collapsed')));
 if(matchMedia('(max-width:560px)').matches){ legend.classList.add('collapsed'); lgHead.setAttribute('aria-expanded','false'); }
 updatePeek();

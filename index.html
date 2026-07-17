@@ -71,6 +71,12 @@
         <div class="stat"><span class="v">7</span><span class="k">Loops</span></div>
         <div class="stat"><span class="v" id="stSeg">—</span><span class="k">Segments</span></div>
       </div>
+      <div class="wx-card" id="wxRow" hidden data-sev="clear">
+        <span class="wx-ic" id="wxIc" aria-hidden="true">☀️</span>
+        <span class="wx-tx"><span class="wx-main" id="wxMain">—</span><span class="wx-sub" id="wxSub">—</span></span>
+        <button class="wx-rf" id="wxRefresh" aria-label="Refresh forecast" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v5h-5"/></svg></button>
+      </div>
+      <div class="wx-adv" id="wxAdv" hidden data-sev="clear"></div>
     </div>
     <div id="viewRec" hidden>
       <div class="dk-label"><span class="live-dot"></span> Recording ride</div>
@@ -107,6 +113,7 @@
         <span><i style="background:#F79009"></i>Road</span>
         <span><i style="background:#94A3B8"></i>Footpath</span>
       </div>
+      <div id="rtWx" class="wx-note" hidden data-sev="clear"></div>
       <div class="rt-actions">
         <button class="btn" id="rtLocBtn">Start: my location</button>
         <button class="btn" id="rtRevBtn" hidden>Reverse</button>
@@ -130,11 +137,12 @@
       <li><span class="kbd">◎</span> Locate — live position + the nearest connector.</li>
       <li><span class="kbd">➤</span> Compass — with GPS on, one tap zooms in and turns the map to face the way you're heading. Tap again for north-up. Twist with two fingers to rotate any time.</li>
       <li><span class="kbd">⦚</span> Route — tap a start &amp; destination for offline turn-by-turn that prefers park connectors.</li>
+      <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and your route's destination), with a heads-up when thundery showers are likely. Toggle the <b>Weather</b> rain-map in the Loops panel.</li>
       <li><span class="kbd">●</span> Record — traces your ride with distance, time and speed; export GPX.</li>
       <li>Toggle any loop in the Loops panel; tap its <span class="kbd">⤢</span> to frame it.</li>
       <li><span class="kbd">⬇</span> Install — tap the install button (top bar) to add it to your home screen and run it offline like a native app.</li>
     </ul>
-    <p><b>Data &amp; maps</b><br>Park connectors (primary): NParks <i>Park Connector Loop</i> (data.gov.sg) — <span id="sheetKm">—</span> km, 7 loops. Rail Corridor: the former KTM railway heritage trail — <span id="sheetRailKm">—</span> km (dashed line; some stretches closed for improvement works, reopening 2027). Cycling paths (secondary): LTA <i>Cycling Path Network</i> — <span id="sheetCpnKm">—</span> km. Routing, Rail Corridor &amp; basemap: © OpenStreetMap contributors (ODbL), © CARTO.</p>
+    <p><b>Data &amp; maps</b><br>Park connectors (primary): NParks <i>Park Connector Loop</i> (data.gov.sg) — <span id="sheetKm">—</span> km, 7 loops. Rail Corridor: the former KTM railway heritage trail — <span id="sheetRailKm">—</span> km (dashed line; some stretches closed for improvement works, reopening 2027). Cycling paths (secondary): LTA <i>Cycling Path Network</i> — <span id="sheetCpnKm">—</span> km. Weather: NEA <i>2-hour forecast</i> via data.gov.sg (live, refreshed as you ride). Routing, Rail Corridor &amp; basemap: © OpenStreetMap contributors (ODbL), © CARTO.</p>
     <p class="fine">Offline turn-by-turn prefers park connectors and avoids expressways. Your location stays on your device. Basemap tiles cache as you view them, so revisited areas work offline.</p>
   </div>
 
