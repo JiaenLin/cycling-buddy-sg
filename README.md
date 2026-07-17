@@ -4,7 +4,7 @@ An installable, **offline-capable** cycling map for Singapore's Park Connector N
 Find the nearest connector, plan routes that prefer park connectors, record rides, and see the
 whole network — on a real street basemap, no app store, no API key.
 
-**Live:** _add your GitHub Pages URL here after enabling Pages_
+**Live:** https://jiaenlin.github.io/cycling-buddy-sg/
 
 ## Features
 - **Map** — the 7 PCN loops (colour-coded) + LTA cycling paths, on a light/dark street basemap.
