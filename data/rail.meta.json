@@ -1,0 +1,18 @@
+{
+  "name": "Rail Corridor",
+  "source": "OpenStreetMap contributors (ODbL)",
+  "total_km": 24.2,
+  "open_km": 17.6,
+  "closed_km": 6.7,
+  "seg_count": 71,
+  "bounds": [
+    [
+      103.752432,
+      1.272706
+    ],
+    [
+      103.838312,
+      1.440614
+    ]
+  ]
+}

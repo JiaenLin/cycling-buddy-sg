@@ -21,9 +21,9 @@ const D2R = Math.PI/180;
 const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
 
 // ---------- state ----------
-let META=null, CPN_META=null, PCN_FEATURES=[], mapLoaded=false, fitted=false;
+let META=null, CPN_META=null, RAIL_META=null, PCN_FEATURES=[], mapLoaded=false, fitted=false;
 const hidden = new Set();
-let cpnVisible = true;
+let cpnVisible = true, railVisible = true;
 let user=null, nearest=null, locActive=false;
 // routing
 let routeMode=false, graphReady=false, graphLoading=null;
@@ -67,21 +67,25 @@ map.on('load', () => { mapLoaded=true; tryFit(); });
 // tap-to-identify — prefer a park connector, fall back to a cycling path (handlers re-apply after a theme switch)
 map.on('click', e => {
   if(routeMode){ handleRouteClick([e.lngLat.lng, e.lngLat.lat]); return; }
-  const layers=['pcn-line','cpn-line'].filter(id=>map.getLayer(id));
+  const layers=['pcn-line','rail-open','rail-closed','cpn-line'].filter(id=>map.getLayer(id));
   if(!layers.length) return;
   const hits=map.queryRenderedFeatures(e.point,{layers});
   if(!hits.length) return;
-  const f=hits.find(h=>h.layer.id==='pcn-line') || hits[0];
+  const isRail=id=>id==='rail-open'||id==='rail-closed';
+  const f=hits.find(h=>h.layer.id==='pcn-line') || hits.find(h=>isRail(h.layer.id)) || hits[0];
   let html;
   if(f.layer.id==='pcn-line'){
     const li=f.properties.loop, col=(li>=0&&li<7)?LOOP_COLORS[li]:OTHER;
     html=`<b><i class="sw" style="background:${col}"></i>${esc(f.properties.name)}</b>${f.properties.park?`<span class="pk">${esc(f.properties.park)}</span>`:''}`;
+  } else if(isRail(f.layer.id)){
+    const closed=f.properties.status==='closed';
+    html=`<b><i class="sw" style="background:var(--rail)"></i>Rail Corridor</b><span class="pk">${closed?'Closed for improvement works · reopening 2027':'Open · former KTM railway trail'}</span>`;
   } else {
     html=`<b><i class="sw" style="background:${getVar('--cpn')}"></i>Cycling path</b>${f.properties.area?`<span class="pk">${esc(f.properties.area)}</span>`:''}`;
   }
   new maplibregl.Popup({className:'pcn-popup', closeButton:true, maxWidth:'240px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 });
-['pcn-line','cpn-line'].forEach(id=>{
+['pcn-line','cpn-line','rail-open','rail-closed'].forEach(id=>{
   map.on('mouseenter', id, () => map.getCanvas().style.cursor='pointer');
   map.on('mouseleave', id, () => map.getCanvas().style.cursor='');
 });
@@ -107,6 +111,19 @@ function addLayers(){
     layout:{'line-join':'round','line-cap':'round','visibility':cpnVis}, paint:{'line-color':cpnCasing,'line-width':wCpnC,'line-opacity':0.75}});
   if(!map.getLayer('cpn-line')) map.addLayer({id:'cpn-line',type:'line',source:'cpn',
     layout:{'line-join':'round','line-cap':'round','visibility':cpnVis}, paint:{'line-color':cpnColor,'line-width':wCpn,'line-opacity':0.9}});
+
+  // Rail Corridor: the former KTM railway (heritage trail) — a distinct dashed "sleeper" line, above CPN, below the park connectors
+  const railColor = getVar('--rail') || (dark ? '#DDD2C0' : '#4A3226');
+  const wRail  = ['interpolate',['linear'],['zoom'], 10,1.6, 13,2.8, 16,5.2];
+  const wRailC = ['interpolate',['linear'],['zoom'], 10,3.4, 13,5.0, 16,7.6];
+  const railVis = railVisible ? 'visible' : 'none';
+  if(!map.getSource('rail')) map.addSource('rail',{type:'geojson',data:'data/rail.lines.geojson'});
+  if(!map.getLayer('rail-casing')) map.addLayer({id:'rail-casing',type:'line',source:'rail',
+    layout:{'line-join':'round','line-cap':'round','visibility':railVis}, paint:{'line-color':casing,'line-width':wRailC,'line-opacity':0.9}});
+  if(!map.getLayer('rail-open')) map.addLayer({id:'rail-open',type:'line',source:'rail',filter:['==',['get','status'],'open'],
+    layout:{'line-join':'round','line-cap':'butt','visibility':railVis}, paint:{'line-color':railColor,'line-width':wRail,'line-dasharray':[2.4,1.2]}});
+  if(!map.getLayer('rail-closed')) map.addLayer({id:'rail-closed',type:'line',source:'rail',filter:['==',['get','status'],'closed'],
+    layout:{'line-join':'round','line-cap':'butt','visibility':railVis}, paint:{'line-color':railColor,'line-width':wRail,'line-dasharray':[1,2.2],'line-opacity':0.55}});
 
   // Primary network: park connectors
   if(!map.getLayer('pcn-casing')) map.addLayer({id:'pcn-casing',type:'line',source:'pcn',filter:loopFilter(),
@@ -151,6 +168,7 @@ function applyFilter(){
 fetch('data/pcn.meta.json').then(r=>r.json()).then(m=>{ META=m; buildLegend(); fillStats(); tryFit(); });
 fetch('data/pcn.lines.geojson').then(r=>r.json()).then(g=>{ PCN_FEATURES=g.features; });
 fetch('data/cpn.meta.json').then(r=>r.json()).then(m=>{ CPN_META=m; appendCpnRow(); });
+fetch('data/rail.meta.json').then(r=>r.json()).then(m=>{ RAIL_META=m; appendRailRow(); });
 
 function tryFit(){
   if(fitted || !mapLoaded || !META) return;
@@ -268,14 +286,48 @@ function buildLegend(){
     row.querySelector('.zoom').addEventListener('click', frame);
     body.appendChild(row);
   });
+  appendRailRow();
   appendCpnRow();
+}
+function ensureExtrasSep(){
+  const body=$('lgBody'); if(!body || !body.children.length) return;
+  if(!body.querySelector('.lg-sep-x')){ const s=document.createElement('div'); s.className='lg-sep lg-sep-x'; body.appendChild(s); }
+}
+function appendRailRow(){
+  if(!RAIL_META) return;
+  const body=$('lgBody'); if(!body.children.length) return;   // loops not built yet — called again from buildLegend
+  if(body.querySelector('.lrow-rail')) return;                // already added
+  ensureExtrasSep();
+  const sk=$('sheetRailKm'); if(sk) sk.textContent=RAIL_META.total_km.toFixed(1);
+  const closedTxt = RAIL_META.closed_km>0 ? ` · ${RAIL_META.closed_km.toFixed(1)} km closed` : '';
+  const row=document.createElement('div'); row.className='lrow lrow-rail';
+  row.innerHTML =
+    `<button class="sw" aria-pressed="true" aria-label="Toggle Rail Corridor"><i style="background:var(--rail)"></i></button>`+
+    `<button class="meta" aria-label="Frame Rail Corridor"><span class="name">Rail Corridor</span><span class="km">${RAIL_META.total_km.toFixed(1)} km${closedTxt}</span></button>`+
+    `<button class="zoom" aria-label="Frame Rail Corridor"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg></button>`;
+  row.querySelector('.sw').addEventListener('click', ()=>toggleRail(row));
+  const frame=()=>map.fitBounds(RAIL_META.bounds,{padding:{top:80,bottom:180,left:40,right:40}});
+  row.querySelector('.meta').addEventListener('click', frame);
+  row.querySelector('.zoom').addEventListener('click', frame);
+  const cpn=body.querySelector('.lrow-cpn');
+  if(cpn) body.insertBefore(row, cpn); else body.appendChild(row);   // keep order: loops · Rail Corridor · cycling paths
+}
+function toggleRail(row){
+  railVisible=!railVisible;
+  row.classList.toggle('off', !railVisible);
+  row.querySelector('.sw').setAttribute('aria-pressed', String(railVisible));
+  setRailVis();
+}
+function setRailVis(){
+  const v = railVisible ? 'visible' : 'none';
+  ['rail-casing','rail-open','rail-closed'].forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',v); });
 }
 function appendCpnRow(){
   if(!CPN_META) return;
   const body=$('lgBody'); if(!body.children.length) return;   // loops not built yet — will be called again from buildLegend
   if(body.querySelector('.lrow-cpn')) return;                 // already added
   const sk=$('sheetCpnKm'); if(sk) sk.textContent=CPN_META.total_km.toFixed(1);
-  const sep=document.createElement('div'); sep.className='lg-sep'; body.appendChild(sep);
+  ensureExtrasSep();
   const row=document.createElement('div'); row.className='lrow lrow-cpn';
   row.innerHTML =
     `<button class="sw" aria-pressed="true" aria-label="Toggle cycling paths"><i style="background:var(--cpn)"></i></button>`+
