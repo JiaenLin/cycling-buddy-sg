@@ -73,7 +73,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - name: Functional Chromium, Firefox and WebKit matrix
-        run: npm run verify:browser
+        run: xvfb-run --auto-servernum npm run verify:browser
       - name: WCAG 2.2 AA automated gates
         run: npm run verify:accessibility
       - name: Measured performance budgets
