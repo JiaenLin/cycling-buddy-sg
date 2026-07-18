@@ -72,7 +72,8 @@ map.on('load', () => { mapLoaded=true; tryFit(); });
 map.on('click', e => {
   if(routeMode){ handleRouteClick([e.lngLat.lng, e.lngLat.lat]); return; }
   // a closure alert outranks everything — it's the most important thing to surface if tapped
-  const closeHit = map.getLayer('closed-marker') ? map.queryRenderedFeatures(e.point,{layers:['closed-marker']})[0] : null;
+  const closeLayers=['closed-marker','risk-glow'].filter(id=>map.getLayer(id));
+  const closeHit = closeLayers.length ? map.queryRenderedFeatures(e.point,{layers:closeLayers})[0] : null;
   if(closeHit){ showClosurePopup(e); return; }
   // a rack is a small, deliberate target — it outranks whatever line or park sits under it
   const rackHit = map.getLayer('racks-pt') ? map.queryRenderedFeatures(e.point,{layers:['racks-pt']})[0] : null;
@@ -110,7 +111,7 @@ function showClosurePopup(e){
   const html=`<b><i class="sw" style="background:var(--closed)"></i>${esc(title)}</b><span class="pk">${esc(note)}</span>${link}`;
   new maplibregl.Popup({className:'pcn-popup', closeButton:true, maxWidth:'250px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 }
-['pcn-line','cpn-line','rail-open','rail-closed','racks-pt','parks-fill','closed-marker'].forEach(id=>{
+['pcn-line','cpn-line','rail-open','rail-closed','racks-pt','parks-fill','closed-marker','risk-glow'].forEach(id=>{
   map.on('mouseenter', id, () => map.getCanvas().style.cursor='pointer');
   map.on('mouseleave', id, () => map.getCanvas().style.cursor='');
 });
@@ -184,10 +185,21 @@ function addLayers(){
     layout:{'line-join':'round','line-cap':'round'}, paint:{'line-color':casing,'line-width':wCase,'line-opacity':0.9}});
   if(!map.getLayer('pcn-line')) map.addLayer({id:'pcn-line',type:'line',source:'pcn',filter:loopFilter(),
     layout:{'line-join':'round','line-cap':'round'}, paint:{'line-color':colorExpr,'line-width':wLine}});
-  // Cycling closures / diversions — an advisory marker (🚳), not a traced route: the official
-  // diversion map is a schematic and tracing its perimeter route onto OSM risks drawing it wrong,
-  // so we flag the closed area and link to the authoritative map (see build/build_closures.js).
+
+  // Cycling closures / diversions. We DON'T reroute or trace the schematic official detour (that
+  // was wrong twice). Instead we flag the affected stretch of the existing loop: a red "diversion
+  // risk" GLOW under the pink (so the loop stays crisp, haloed red) + a 🚳 marker; tap → the
+  // official map. Real PCN geometry, clipped to the affected area (see build/build_closures.js).
   if(!map.getSource('closures')) map.addSource('closures',{type:'geojson',data:'data/closures.geojson'});
+  const closedGlow = getVar('--closed') || (dark?'#F87171':'#DC2626');
+  const closuresVis = closuresVisible ? 'visible' : 'none';
+  // A translucent red highlight over the affected pink stretch (drawn on top → the pink glows red).
+  // Deliberately no line-blur / no extreme width: kept to normal line params like every other layer.
+  if(!map.getLayer('risk-glow')) map.addLayer({id:'risk-glow',type:'line',source:'closures',filter:['==',['get','kind'],'risk'],
+    layout:{'line-join':'round','line-cap':'round','visibility':closuresVis},
+    paint:{'line-color':closedGlow,
+      'line-width':['interpolate',['linear'],['zoom'],11,5,14,10,17,16],
+      'line-opacity':0.45}});
 
   if(!map.getLayer('near-line')) map.addLayer({id:'near-line',type:'line',source:'nearest',filter:['==','$type','LineString'],
     paint:{'line-color': dark?'#EAF2ED':'#15211B','line-width':2,'line-dasharray':[1,2],'line-opacity':0.7}});
@@ -244,24 +256,35 @@ function addLayers(){
   if(!map.getLayer('closed-marker')) map.addLayer({id:'closed-marker',type:'symbol',source:'closures',filter:['==',['get','kind'],'marker'],
     layout:{visibility: closuresVisible?'visible':'none',
       'icon-image':'closed-ic',
-      'icon-size':['interpolate',['linear'],['zoom'],10,0.5,14,0.85,17,1],
+      'icon-size':['interpolate',['linear'],['zoom'],10,0.4,14,0.65,17,0.8],
       'icon-allow-overlap':true,'icon-ignore-placement':true}});
 
   refreshNearestSource(); refreshTrackSource(); refreshRouteSource(); refreshWxSource();
 }
-// 🚳 "no bicycles" marker on a red disc, drawn to canvas (no glyph fetch, offline-safe).
+// "No cycling" diversion sign — a crisp vector badge drawn to canvas (no glyph fetch, offline-safe,
+// legible at map size where the 🚳 emoji was not): white disc, red ring, a simple bike, red slash.
 function closureEnsureIcon(){
   if(map.hasImage('closed-ic')) return;
-  const dpr=3, size=30, r=12;
-  const disc=getVar('--closed') || (isDark()?'#F87171':'#DC2626');
+  const dpr=3, size=44, r=18;
+  const red=getVar('--closed') || (isDark()?'#F87171':'#DC2626');
   const cv=document.createElement('canvas'); cv.width=cv.height=size*dpr;
   const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
   const cx=size/2, cy=size/2;
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-  ctx.fillStyle='#ffffff'; ctx.fill();
-  ctx.lineWidth=2.4; ctx.strokeStyle=disc; ctx.stroke();
-  ctx.font='16px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🚳', cx, cy+0.5);
+  // white disc with a soft drop shadow so it stands off the map
+  ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=4; ctx.shadowOffsetY=1.5;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
+  ctx.shadowColor='transparent';
+  // simple bicycle in slate
+  ctx.strokeStyle='#475569'; ctx.lineWidth=1.6; ctx.lineCap='round'; ctx.lineJoin='round';
+  const wy=cy+4, wr=4, lx=cx-6.5, rx=cx+6.5;
+  ctx.beginPath(); ctx.arc(lx,wy,wr,0,Math.PI*2); ctx.moveTo(rx+wr,wy); ctx.arc(rx,wy,wr,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx,wy); ctx.lineTo(cx,wy); ctx.lineTo(cx-1.5,cy-3); ctx.lineTo(rx,wy);
+  ctx.moveTo(cx-1.5,cy-3); ctx.lineTo(cx+3,cy-3); ctx.stroke();   // top tube + handlebar
+  // red ring + prohibition slash
+  ctx.strokeStyle=red; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.arc(cx,cy,r-1,0,Math.PI*2); ctx.stroke();
+  const s=(r-1)*Math.SQRT1_2;
+  ctx.beginPath(); ctx.moveTo(cx-s,cy-s); ctx.lineTo(cx+s,cy+s); ctx.lineWidth=3.4; ctx.stroke();
   try{ map.addImage('closed-ic', ctx.getImageData(0,0,size*dpr,size*dpr), {pixelRatio:dpr}); }catch(e){}
 }
 // Rack markers are drawn to canvas rather than using map glyphs: no font fetch, so they stay
@@ -711,7 +734,7 @@ function toggleClosures(row){
   row.classList.toggle('off', !closuresVisible);
   row.querySelector('.sw').setAttribute('aria-pressed', String(closuresVisible));
   const v = closuresVisible ? 'visible' : 'none';
-  if(map.getLayer('closed-marker')) map.setLayoutProperty('closed-marker','visibility',v);
+  ['closed-marker','risk-glow'].forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',v); });
 }
 function ensureExtrasSep(){
   const body=$('lgBody'); if(!body || !body.children.length) return;
