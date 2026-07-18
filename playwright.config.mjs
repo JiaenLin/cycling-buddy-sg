@@ -40,7 +40,11 @@ export default defineConfig({
     {
       name: 'desktop-firefox',
       testMatch: 'browser/regression.spec.mjs',
-      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } }
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 1280, height: 800 },
+        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } }
+      }
     },
     {
       name: 'mobile-webkit',
