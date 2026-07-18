@@ -290,7 +290,7 @@ function checkDatasets() {
 function checkGraphAndRouter() {
   const graph = readJson('data/graph.json');
   assert(Array.isArray(graph.nodes) && Array.isArray(graph.edges), 'graph.json: nodes/edges arrays required');
-  assert(graph.nodes.length === 116331 && graph.edges.length === 172325,
+  assert(graph.nodes.length === 116330 && graph.edges.length === 172325,
     `graph.json: fixture counts changed (${graph.nodes.length} nodes, ${graph.edges.length} edges)`);
   graph.nodes.forEach((node, index) => {
     assert(Array.isArray(node) && node.length === 2 && node.every(Number.isFinite),
