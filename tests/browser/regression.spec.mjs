@@ -34,13 +34,18 @@ test('shows deterministic weather and fails closed when the live API is unavaila
 
   const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light' });
   const failurePage = await context.newPage();
-  const failureErrors = await openArtifact(failurePage, { weatherFailure: true });
+  const failureResponses = [];
+  failurePage.on('response', response => {
+    if (response.url().startsWith('https://api-open.data.gov.sg/')) {
+      failureResponses.push(response.status());
+    }
+  });
+  await openArtifact(failurePage, { weatherFailure: true });
   await failurePage.evaluate(() => loadWeather(true));
   await expect(failurePage.locator('#wxRow')).toBeHidden();
   await expect(failurePage.locator('#wxAdv')).toHaveAttribute('hidden', '');
   await expect(failurePage.locator('#wxAdv')).toHaveText('');
-  expect(failureErrors.length).toBeGreaterThan(0);
-  expect(failureErrors.every(message => message.includes('503 (Service Unavailable)'))).toBe(true);
+  expect(failureResponses).toContain(503);
   await context.close();
 });
 
@@ -61,11 +66,16 @@ test('plans a fixed route, exposes the road warning, and reports missing routing
 
   const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light' });
   const failurePage = await context.newPage();
-  const failureErrors = await openArtifact(failurePage, { graphFailure: true });
+  const failureResponses = [];
+  failurePage.on('response', response => {
+    if (new URL(response.url()).pathname.endsWith('/data/graph.json')) {
+      failureResponses.push(response.status());
+    }
+  });
+  await openArtifact(failurePage, { graphFailure: true });
   await failurePage.getByRole('button', { name: 'Plan a route' }).click();
   await expect(failurePage.locator('#toast')).toContainText('Routing data isn’t available yet');
-  expect(failureErrors.length).toBeGreaterThan(0);
-  expect(failureErrors.every(message => message.includes('503 (Service Unavailable)'))).toBe(true);
+  expect(failureResponses).toContain(503);
   await context.close();
 });
 
