@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-07-18",
+  "reviewDue": "2026-10-18",
+  "runtimeDependencies": [],
+  "developmentDependencies": [
+    {
+      "name": "@playwright/test",
+      "version": "1.61.1",
+      "purpose": "Browser regression, performance and recovery verification",
+      "source": "https://www.npmjs.com/package/@playwright/test",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "@axe-core/playwright",
+      "version": "4.12.1",
+      "purpose": "Automated WCAG 2.2 AA checks",
+      "source": "https://www.npmjs.com/package/@axe-core/playwright",
+      "licence": "MPL-2.0"
+    }
+  ],
+  "vendoredRuntime": [
+    {
+      "name": "MapLibre GL JS",
+      "version": "4.7.1",
+      "files": {
+        "vendor/maplibre-gl.js": "be9633c4d870e26fb37f1cfe5c5a77181667114003ea16207ac7850d8da8add1",
+        "vendor/maplibre-gl.css": "576b085fdd9487a65a19215328c1e086c07ce5bf6da09b666b3806d3d008dae9"
+      },
+      "source": "https://github.com/maplibre/maplibre-gl-js/tree/v4.7.1",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "GoatCounter count.js",
+      "version": "upstream snapshot 2026-07-17",
+      "files": {
+        "vendor/goatcounter-count.js": "792b7abd26c1fb6ae62906833e09a301251e2641816e69e4f95aba518f3fe3f0"
+      },
+      "source": "https://www.goatcounter.com/count.js",
+      "licence": "ISC"
+    }
+  ],
+  "automation": {
+    "secretScan": "npm run verify:security",
+    "dependencyReview": ".github/workflows/verify.yml",
+    "codeScanning": ".github/workflows/codeql.yml",
+    "updatePolicy": ".github/dependabot.yml"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "contractVersion": 1,
+  "product": "Cycling Buddy SG",
+  "portableCore": ["routing cost model", "network normalization", "route result model", "closure validation"],
+  "platformAdapters": ["map renderer", "geolocation", "ride storage/export", "network status", "service-worker or native offline storage", "weather provider", "notifications"],
+  "privacyBoundary": "Precise location and ride history remain on-device unless a future, separately reviewed opt-in sync contract is introduced.",
+  "compatibilityRule": "Additive fields are allowed within v1; removed fields or changed meaning require a new contract version and migration tests."
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-07-18",
+  "reviewer": "repository owner",
+  "scope": "Static PWA, release automation, development dependencies, vendored runtime, data and live endpoints",
+  "results": {
+    "npmAudit": "0 known vulnerabilities at review time",
+    "runtimePackages": 0,
+    "vendoredChecksums": "verified",
+    "secretScan": "pass",
+    "threatModel": "docs/security/THREAT_MODEL.md",
+    "cspAssessment": "docs/security/CSP_ASSESSMENT.md"
+  },
+  "acceptedRisks": [
+    "GitHub Pages cannot send a report-only Content-Security-Policy header; meta enforcement is deferred until the documented compatibility test passes.",
+    "Basemap tile requests reveal viewed map tiles to OpenFreeMap; precise browser geolocation is never added to a URL or telemetry event by this application."
+  ],
+  "tier3Rule": "Every Tier 3 update must update this review when trust boundaries, data flows, dependencies, permissions, analytics, routing or service-worker behaviour change."
+}

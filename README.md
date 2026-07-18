@@ -50,6 +50,18 @@ python -m http.server 8000      # then open http://localhost:8000
 - **Weather:** NEA 2-hour forecast (data.gov.sg).
 - **Routing graph, Rail Corridor & basemap:** © OpenStreetMap contributors (ODbL); basemap hosting by [OpenFreeMap](https://openfreemap.org).
 
+## Development and release safety
+
+Changes are gated by deterministic data/routing contracts, Chromium/Firefox/WebKit browser tests,
+WCAG 2.2 AA automation, measured performance budgets, security checks, and a forward-versioned
+service-worker recovery drill. Run `npm run verify:all` from a clean checkout for the complete
+local suite.
+
+Network data provenance and non-destructive rebuild instructions are in
+[`docs/data/NETWORK_REPRODUCIBILITY.md`](docs/data/NETWORK_REPRODUCIBILITY.md). The versioned route
+contracts and the no-fork path for a future native app or outdoor platform are described in
+[`docs/architecture/PLATFORM_EVOLUTION.md`](docs/architecture/PLATFORM_EVOLUTION.md).
+
 The routing graph (`data/graph.json`) is generated from OpenStreetMap — see [`build/`](build/).
 
 ## Tech

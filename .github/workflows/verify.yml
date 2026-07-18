@@ -17,54 +17,76 @@ jobs:
     name: deterministic-verification
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          # Push events may contain more than one commit. The risk classifier
-          # must always be able to diff GitHub's exact `before` SHA.
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
+          cache: npm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.13'
+      - run: npm ci
       - name: Classify change risk
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/classify-risk.mjs --base "$BASE_SHA"
-      - name: Run deterministic release verification
+      - name: Run deterministic maturity gates
         run: |
           mkdir -p .artifacts
-          node scripts/verify.mjs > .artifacts/verification.txt
-          cat .artifacts/verification.txt
-      - name: Archive deterministic gate report
+          npm run verify:deterministic 2>&1 | tee .artifacts/deterministic-verification.txt
+      - name: Archive deterministic evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: deterministic-verification-${{ github.sha }}
-          path: .artifacts/verification.txt
+          path: .artifacts/deterministic-verification.txt
           if-no-files-found: warn
+          retention-days: 30
 
-  browser-regression:
+  dependency-review:
+    name: dependency-review
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always
+
+  browser-maturity:
+    # Preserve the established protected-branch check name while expanding its scope.
     name: browser-regression
     needs: deterministic-verification
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run verify:browser
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Functional Chromium, Firefox and WebKit matrix
+        run: npm run verify:browser
+      - name: WCAG 2.2 AA automated gates
+        run: npm run verify:accessibility
+      - name: Measured performance budgets
+        run: npm run verify:performance:browser
+      - name: Forward-versioned recovery drill
+        run: npm run verify:recovery
       - name: Archive browser evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: browser-regression-${{ github.sha }}
+          name: browser-maturity-${{ github.sha }}
           path: |
             playwright-report/
             test-results/
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 30

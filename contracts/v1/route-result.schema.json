@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyclingbuddy.sg/contracts/v1/route-result.schema.json",
+  "title": "Route result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "distanceMetres", "cyclingShare", "geometry", "warnings"],
+  "properties": {
+    "contractVersion": { "const": 1 },
+    "distanceMetres": { "type": "number", "minimum": 0 },
+    "cyclingShare": { "type": "number", "minimum": 0, "maximum": 1 },
+    "geometry": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "array",
+        "prefixItems": [{ "type": "number" }, { "type": "number" }],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}

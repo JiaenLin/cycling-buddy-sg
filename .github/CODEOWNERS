@@ -1,0 +1,30 @@
+# One owner today; category-specific rules make review responsibilities explicit and scale when
+# more maintainers are added. High-risk approval policy lives in release/ownership.json.
+* @JiaenLin
+
+/router.js @JiaenLin
+/data/graph.json @JiaenLin
+/build/build_graph.py @JiaenLin
+/build/download_paths.py @JiaenLin
+/build/download_roads.py @JiaenLin
+
+/sw.js @JiaenLin
+/manifest.webmanifest @JiaenLin
+/release/ @JiaenLin
+/.github/ @JiaenLin
+/scripts/ @JiaenLin
+
+/data/ @JiaenLin
+/build/ @JiaenLin
+/release/data-sources.json @JiaenLin
+
+/SECURITY.md @JiaenLin
+/docs/security/ @JiaenLin
+/release/health-privacy.json @JiaenLin
+/release/security-inventory.json @JiaenLin
+
+/index.html @JiaenLin
+/style.css @JiaenLin
+/app.js @JiaenLin
+/docs/ACCESSIBILITY.md @JiaenLin
+/tests/accessibility/ @JiaenLin

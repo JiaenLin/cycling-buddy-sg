@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "service": "Cycling Buddy SG",
+  "observationWindowDays": 28,
+  "syntheticCadenceHours": 6,
+  "referenceRelease": "cbsg-v19",
+  "objectives": {
+    "appLoad": { "targetPercent": 99.9, "maxDurationMs": 12000, "critical": true },
+    "requiredAssets": { "targetPercent": 100, "minimumAvailable": 27, "maximumHashMismatches": 0, "critical": true },
+    "serviceWorker": { "targetPercent": 99.0, "maximumUpdateLoops": 0, "critical": true },
+    "routing": { "targetPercent": 99.0, "maxDurationMs": 20000, "critical": true },
+    "clientErrors": { "targetPercent": 99.9, "maximumCount": 0, "critical": true },
+    "liveDependencies": { "targetPercent": 98.0, "maximumFailures": 0, "critical": false }
+  },
+  "alertPolicy": {
+    "immediate": [
+      "ASSET_MISSING",
+      "ASSET_HASH_MISMATCH",
+      "APP_LOAD_FAILED",
+      "SERVICE_WORKER_FAILED",
+      "UPDATE_LOOP",
+      "ROUTING_FAILED",
+      "CLIENT_ERROR"
+    ],
+    "warning": ["LIVE_API_FAILED", "DURATION_BUDGET_EXCEEDED"],
+    "releaseFreeze": {
+      "criticalFailureCount": 1,
+      "consecutiveWarningRuns": 2,
+      "errorBudgetConsumedPercent": 50,
+      "rule": "Freeze non-incident production releases until the signal is green, the cause is understood, and the relevant regression gate is strengthened."
+    }
+  }
+}

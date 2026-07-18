@@ -32,6 +32,7 @@ let routeMode=false, graphReady=false, graphLoading=null;
 let routeStart=null, routeEnd=null, routeResult=null, mkStart=null, mkEnd=null;
 let routeOptions=null, routeSel='max';
 let recording=false, track=[], recDist=0, recStart=0, recTimer=null, lastPt=null;
+let pendingUpdateWorker=null, renderPendingUpdate=null;
 // compass / heading-follow ("face direction") mode
 let headingMode=false, deviceHeading=null, deviceHeadingTs=0, camRAF=null;
 const camTarget={center:null, bearing:null};
@@ -614,6 +615,7 @@ function updateRecUI(){
 function startRec(){
   if(!locActive) geo.trigger();
   recording=true; track=[]; recDist=0; lastPt=null; recStart=performance.now();
+  const update=$('updatePill'); if(update && !update.hidden){ update.classList.remove('show'); update.hidden=true; }
   $('recBtn').classList.add('active'); $('recBtn').setAttribute('aria-label','Stop recording');
   show('viewRec'); setDock(false);
   recTimer=setInterval(()=>{ track.length ? updateRecUI() : ($('recTime').textContent=fmtTime((performance.now()-recStart)/1000)); }, 1000);
@@ -626,6 +628,7 @@ function stopRec(){
   $('sumTime').textContent=fmtTime(el);
   $('sumAvg').textContent = el>3 ? ((recDist/el)*3.6).toFixed(1) : '0.0';
   if(track.length>1){ show('viewSum'); ping('ride-saved'); } else { show('viewNearest'); toast('Ride too short to save'); }
+  if(renderPendingUpdate) renderPendingUpdate();
 }
 function buildGPX(){
   const pts=track.map(p=>`<trkpt lat="${p[1].toFixed(6)}" lon="${p[0].toFixed(6)}"></trkpt>`).join('');
@@ -986,6 +989,8 @@ function resetRoutePanel(){ hideOptions(); routeOptions=null; rtHint('Tap the ma
 function setPoint(which,ll){
   const color = which==='start' ? '#22B573' : (getVar('--rec')||'#e02749');
   const m=new maplibregl.Marker({color}).setLngLat(ll).addTo(map);
+  m.getElement().setAttribute('role','img');
+  m.getElement().setAttribute('aria-label', which==='start' ? 'Route start marker' : 'Route destination marker');
   if(which==='start'){ if(mkStart)mkStart.remove(); mkStart=m; routeStart=ll; }
   else { if(mkEnd)mkEnd.remove(); mkEnd=m; routeEnd=ll; }
 }
@@ -1091,13 +1096,34 @@ lgHead.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.prev
 
 // ---------- modal sheets (about / install) ----------
 const scrim=$('scrim');
-function openModal(el){ scrim.classList.add('open'); el.classList.add('open'); }
-function closeModal(){ scrim.classList.remove('open'); document.querySelectorAll('.sheet.open').forEach(s=>s.classList.remove('open')); }
+const modalFocusable='button:not([disabled]),a[href],summary,[tabindex]:not([tabindex="-1"])';
+let modalOpener=null;
+function openModal(el){
+  modalOpener=document.activeElement;
+  scrim.classList.add('open'); el.classList.add('open'); el.inert=false; el.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>{ const first=el.querySelector(modalFocusable); if(first) first.focus(); });
+}
+function closeModal(){
+  const open=document.querySelector('.sheet.open');
+  scrim.classList.remove('open');
+  document.querySelectorAll('.sheet.open').forEach(s=>{ s.classList.remove('open'); s.inert=true; s.setAttribute('aria-hidden','true'); });
+  if(open && modalOpener && document.contains(modalOpener)) modalOpener.focus();
+  modalOpener=null;
+}
 $('infoBtn').addEventListener('click', ()=>openModal($('sheet')));
 $('closeSheet').addEventListener('click', closeModal);
 $('closeInstall').addEventListener('click', closeModal);
 scrim.addEventListener('click', closeModal);
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e=>{
+  const open=document.querySelector('.sheet.open');
+  if(e.key==='Escape' && open){ e.preventDefault(); closeModal(); return; }
+  if(e.key!=='Tab' || !open) return;
+  const focusable=[...open.querySelectorAll(modalFocusable)].filter(el=>!el.hidden && !el.inert);
+  if(!focusable.length){ e.preventDefault(); return; }
+  const first=focusable[0], last=focusable[focusable.length-1];
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+});
 
 // ---------- toast ----------
 let toastT=null; const toastEl=$('toast');
@@ -1138,11 +1164,13 @@ if('serviceWorker' in navigator){
     if(userChoseUpdate) location.reload();   // reload only on an opted-in update, not the first install
   });
   const showUpdatePill = worker => {
-    const pill = $('updatePill'); if(!pill || pill._wired===worker) return;
+    pendingUpdateWorker = worker;
+    const pill = $('updatePill'); if(!pill || recording || (pill._wired===worker && !pill.hidden)) return;
     pill._wired = worker;                     // guard: reg.waiting and updatefound can both fire
     pill.hidden = false; requestAnimationFrame(()=>pill.classList.add('show'));
-    pill.onclick = ()=>{ userChoseUpdate = true; pill.classList.remove('show'); worker.postMessage('SKIP_WAITING'); };
+    pill.onclick = ()=>{ userChoseUpdate = true; pendingUpdateWorker=null; pill.classList.remove('show'); worker.postMessage('SKIP_WAITING'); };
   };
+  renderPendingUpdate = ()=>{ if(pendingUpdateWorker && !recording) showUpdatePill(pendingUpdateWorker); };
   window.addEventListener('load', async ()=>{
     let reg; try{ reg = await navigator.serviceWorker.register('sw.js'); }catch(e){ return; }
     if(reg.waiting && navigator.serviceWorker.controller) showUpdatePill(reg.waiting);   // update already downloaded

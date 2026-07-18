@@ -6,8 +6,19 @@
   "scripts": {
     "risk:classify": "node scripts/classify-risk.mjs --working-tree",
     "verify": "node scripts/verify.mjs",
-    "verify:browser": "playwright test",
-    "verify:all": "npm run verify && npm run verify:browser",
+    "verify:unit": "node --test tests/node/*.test.mjs",
+    "verify:data": "node scripts/data-reproducibility.mjs",
+    "verify:security": "node scripts/security-audit.mjs",
+    "verify:governance": "node scripts/governance-audit.mjs",
+    "verify:performance": "node scripts/performance-budget.mjs",
+    "verify:browser": "playwright test --project=desktop-chromium --project=mobile-chromium --project=desktop-firefox --project=mobile-webkit",
+    "verify:accessibility": "playwright test --project=accessibility-desktop --project=accessibility-mobile",
+    "verify:performance:browser": "playwright test --project=performance-chromium",
+    "verify:recovery": "playwright test --project=recovery-chromium",
+    "verify:deterministic": "npm run verify && npm run verify:unit && npm run verify:data && npm run verify:security && npm run verify:governance && npm run verify:performance",
+    "verify:all": "npm run verify:deterministic && npm run verify:browser && npm run verify:accessibility && npm run verify:performance:browser && npm run verify:recovery",
+    "health:production": "node scripts/production-health.mjs",
+    "data:rebuild": "node build/rebuild_network_layers.mjs",
     "release:manifest": "node scripts/release-manifest.mjs",
     "release:verify-deployment": "node scripts/verify-deployment.mjs"
   },
@@ -15,6 +26,7 @@
     "node": ">=22"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.61.1"
   }
 }

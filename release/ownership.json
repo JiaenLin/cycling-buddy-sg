@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "owner": "@JiaenLin",
+  "categories": {
+    "routing": ["router.js", "data/graph.json", "build/build_graph.py", "build/download_paths.py", "build/download_roads.py"],
+    "serviceWorkerAndDeployment": ["sw.js", "manifest.webmanifest", "release/**", ".github/**", "scripts/**"],
+    "data": ["data/**", "build/**", "release/data-sources.json"],
+    "privacyAndSecurity": ["SECURITY.md", "docs/security/**", "release/health-privacy.json", "release/security-inventory.json"],
+    "uiAndAccessibility": ["index.html", "style.css", "app.js", "docs/ACCESSIBILITY.md", "tests/accessibility/**"]
+  },
+  "reviewPolicy": {
+    "currentMaintainerCount": 1,
+    "ownerReviewRequiredForTier3": true,
+    "independentApprovalWhenMaintainerCountAtLeast": 2,
+    "minimumIndependentApprovalsThen": 1,
+    "noSelfMergeForTier3Then": true,
+    "rule": "Until a second maintainer exists, the sole owner records explicit approval and all required automated/device/soak evidence. Once two maintainers exist, Tier 3 also requires one independent relevant-owner approval and no self-merge."
+  }
+}

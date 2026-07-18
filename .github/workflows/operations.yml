@@ -1,0 +1,49 @@
+name: Production health and governance
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Check to run
+        type: choice
+        options: [all, health, governance]
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  production-health:
+    name: privacy-preserving-production-health
+    if: github.event_name == 'schedule' || inputs.target == 'all' || inputs.target == 'health'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run health:production -- --output .artifacts/production-health.json
+      - name: Archive privacy-limited health report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-health-${{ github.run_id }}
+          path: .artifacts/production-health.json
+          if-no-files-found: warn
+          retention-days: 28
+
+  governance:
+    name: policy-review-due-date
+    if: github.event_name == 'schedule' || inputs.target == 'all' || inputs.target == 'governance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm run verify:governance

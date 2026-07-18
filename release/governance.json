@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "policyOwner": "@JiaenLin",
+  "lastReviewedOn": "2026-07-18",
+  "nextReviewDueOn": "2027-01-18",
+  "maximumIntervalDays": 184,
+  "scheduledCheckCadence": "monthly",
+  "eventTriggeredReviews": [
+    "material incident or near miss",
+    "architecture or data-schema change",
+    "supported browser-platform change",
+    "new runtime, data, analytics, permission, or security dependency"
+  ],
+  "reviewInputs": [
+    "reliability objectives and freeze thresholds",
+    "health-monitor signals and privacy field inventory",
+    "performance and accessibility budgets",
+    "security inventory and threat-model deltas",
+    "incidents, regressions, recovery drills and channel evidence",
+    "mobile/outdoor platform contracts and supported-device matrix"
+  ]
+}

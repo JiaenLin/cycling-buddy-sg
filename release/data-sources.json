@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-07-18",
+  "licence": "Singapore Open Data Licence for NParks/LTA; ODbL for OpenStreetMap",
+  "transform": {
+    "implementation": "build/network-normalizer.mjs",
+    "coordinateDecimals": 5,
+    "simplifyToleranceDegrees": 0.00002,
+    "featureOrdering": "upstream feature order, then MultiLineString member order"
+  },
+  "sources": {
+    "pcn": {
+      "name": "Park Connector Loop",
+      "agency": "National Parks Board",
+      "datasetId": "d_a69ef89737379f231d2ae93fd1c5707f",
+      "coverage": "October 2025",
+      "page": "https://data.gov.sg/datasets/d_a69ef89737379f231d2ae93fd1c5707f/view",
+      "downloadApi": "https://api-open.data.gov.sg/v1/public/api/datasets/d_a69ef89737379f231d2ae93fd1c5707f/poll-download",
+      "observedRawSha256": "83c1838bea9ee355d2ba52c2060eb185612dd0e2e3fdb113aff9cdd6e5c27efd",
+      "observedRebuildSha256": "e3ded30410cec2535edf8cba02914b1b8ab1388f26f67f900fcc737338cf6b47",
+      "productionSha256": "03bced1c5b9e0b33cefb5d390243b9570c51e31153ba6edf5fca295e35bfdeae",
+      "delta": "Current upstream still flattens to 1,177 lines; 1,020 geometries/properties match the production feature at the same index. Remaining differences are upstream source revisions and require map review before adoption."
+    },
+    "cpn": {
+      "name": "Cycling Path Network (GEOJSON)",
+      "agency": "Land Transport Authority",
+      "datasetId": "d_8f468b25193f64be8a16fa7d8f60f553",
+      "coverage": "July 2025",
+      "page": "https://data.gov.sg/datasets/d_8f468b25193f64be8a16fa7d8f60f553/view",
+      "downloadApi": "https://api-open.data.gov.sg/v1/public/api/datasets/d_8f468b25193f64be8a16fa7d8f60f553/poll-download",
+      "observedRawSha256": "80288a2b1e08b9af00b3f03cf5af41cca18b1e46dfbc7f106468266d177cc199",
+      "observedRebuildSha256": "b03eff932575e76a7d2271e1412c453ea75173c6bcda213ccfa4c92a0cb9a818",
+      "productionSha256": "3c94464d7dab738267034a36be51da52e4b155b1c8376d69e94bae086c7d7501",
+      "delta": "Current upstream still flattens to 8,527 lines; 8,239 complete features match production. There are 288 candidate-only and 288 production-only features, including one upstream record with no CYL_PATH that is made explicit as Unspecified. All differences require map review before adoption."
+    },
+    "rail": {
+      "name": "Rail Corridor",
+      "agency": "OpenStreetMap contributors",
+      "osmRelation": 3871697,
+      "snapshotAt": "2026-07-17T06:00:00Z",
+      "query": "current relation 3871697 member ways with tags and geometry; production remains the reviewed 2026-07-17 snapshot until a current rebuild is approved",
+      "page": "https://www.openstreetmap.org/relation/3871697",
+      "observedCurrentElementsSha256": "b31542845f35cecef448c21febb4f1304d7c74bb281525c5ca93ade9e567ba64",
+      "observedCurrentRebuildSha256": "620e2b7b0172e3ed71b9845a461478471125635921f694e95ff39e7ec04109f7",
+      "productionSha256": "6f8e621275bf706eef1e6496ac011b6ee4caf37d16de75f0676e1ca51c507ce8",
+      "delta": "Production has 71 reviewed lines. The current relation rebuild has 82: 38 exact matches, 44 candidate-only and 33 production-only. This is an explicit source-data delta held for manual status, ordering and continuity review."
+    }
+  },
+  "adoptionRule": "Never copy a rebuild over production data automatically. Review the report, rendered geometry, metadata/count/length deltas, licences, fixed routing fixtures and release risk first."
+}

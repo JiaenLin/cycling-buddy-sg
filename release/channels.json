@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "channels": {
+    "development": {
+      "audience": "maintainers",
+      "mutable": true,
+      "releaseEligible": false
+    },
+    "previewCanary": {
+      "repository": "JiaenLin/cycling-buddy-sg-preview",
+      "url": "https://jiaenlin.github.io/cycling-buddy-sg-preview/",
+      "audience": "opt-in testers and maintainers",
+      "mutable": false,
+      "minimumTier3SoakHours": 24,
+      "requiresPhysicalAndroidAndIos": true,
+      "releaseEligible": false
+    },
+    "production": {
+      "repository": "JiaenLin/cycling-buddy-sg",
+      "branch": "production",
+      "url": "https://jiaenlin.github.io/cycling-buddy-sg/",
+      "audience": "all users",
+      "mutable": false,
+      "releaseEligible": true
+    }
+  },
+  "promotion": {
+    "mode": "same-commit-fast-forward",
+    "rebuildAllowed": false,
+    "tier3Requirements": [
+      "all blocking checks pass on the candidate SHA",
+      "preview asset hashes match the release baseline",
+      "physical Android and iOS evidence is recorded",
+      "the 24-hour preview soak completes without freeze signals",
+      "owner approval identifies the exact candidate SHA"
+    ]
+  }
+}

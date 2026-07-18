@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "drill": "installed old -> rejected bad candidate -> forward-versioned recovery",
+  "performedAt": "2026-07-18",
+  "command": "npm run verify:recovery",
+  "serviceWorkerUnderTest": "sw.js",
+  "versions": {
+    "installedOld": "cbsg-drill-old",
+    "badCandidate": "cbsg-drill-bad",
+    "forwardRecovery": "cbsg-drill-recovery"
+  },
+  "assertions": [
+    "old worker installs and controls the client",
+    "bad candidate fails a required shell fetch and becomes redundant",
+    "bad candidate never replaces the active worker",
+    "forward recovery installs and waits for explicit activation",
+    "exactly one opted-in controller change occurs",
+    "localStorage and IndexedDB synthetic draft values survive",
+    "old and partial bad caches are removed after recovery",
+    "repeated update check does not create a controller loop"
+  ],
+  "result": "pass",
+  "evidence": {
+    "observedAt": "2026-07-18T15:24:00Z",
+    "environment": "Playwright 1.61.1 / Chromium 149.0.7827.55 / Windows",
+    "outcome": "All eight assertions passed in the isolated localhost drill; production was not contacted or modified."
+  },
+  "productionImpact": "none; isolated localhost synthetic drill"
+}

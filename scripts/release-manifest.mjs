@@ -25,6 +25,7 @@ const required = (flag, fallback = null) => {
 
 export function generateManifest(options = {}) {
   const shell = readShellContract();
+  const deploymentContract = JSON.parse(fs.readFileSync(path.join(ROOT, 'release', 'deployment-assets.json'), 'utf8'));
   const tier = Number(options.tier ?? required('--tier'));
   const justification = options.justification ?? required('--justification');
   const deploymentUrl = options.deploymentUrl ?? required('--deployment-url', 'https://jiaenlin.github.io/cycling-buddy-sg/');
@@ -37,7 +38,8 @@ export function generateManifest(options = {}) {
 
   const assetFiles = [...new Set([
     'sw.js',
-    ...shell.assets.filter(asset => asset !== './').map(asset => asset.replace(/^\.\//, ''))
+    ...shell.assets.filter(asset => asset !== './').map(asset => asset.replace(/^\.\//, '')),
+    ...deploymentContract.supplementalRuntimeAssets
   ])].sort();
   const diff = spawnSync('git', [
     '-c', `safe.directory=${ROOT.replaceAll('\\', '/')}`, '-C', ROOT,

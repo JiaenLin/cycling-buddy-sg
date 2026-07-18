@@ -433,10 +433,16 @@ function checkClosureReproducibility() {
 
 function checkReleaseTooling() {
   const pkg = readJson('package.json');
-  for (const script of ['risk:classify', 'verify', 'verify:browser', 'verify:all', 'release:manifest', 'release:verify-deployment']) {
+  for (const script of [
+    'risk:classify', 'verify', 'verify:unit', 'verify:data', 'verify:security',
+    'verify:governance', 'verify:performance', 'verify:browser', 'verify:accessibility',
+    'verify:performance:browser', 'verify:recovery', 'verify:deterministic', 'verify:all',
+    'health:production', 'data:rebuild', 'release:manifest', 'release:verify-deployment'
+  ]) {
     assert(pkg.scripts?.[script], `package.json: missing ${script} command`);
   }
   assert(pkg.devDependencies?.['@playwright/test'] === '1.61.1', 'package.json: Playwright must be exactly pinned');
+  assert(pkg.devDependencies?.['@axe-core/playwright'] === '4.12.1', 'package.json: axe must be exactly pinned');
   const risk = readJson('release/risk-tiers.json');
   assert(Object.keys(risk.tiers || {}).join(',') === '0,1,2,3', 'risk-tiers.json: tiers 0..3 required');
   assert(risk.rules.some(rule => rule.tier === 3), 'risk-tiers.json: Tier 3 paths missing');
@@ -453,7 +459,49 @@ function checkReleaseTooling() {
   for (const pattern of ['*.json text eol=lf', '*.geojson text eol=lf', '*.js text eol=lf', '*.mjs text eol=lf']) {
     assert(attributes.includes(pattern), `.gitattributes: missing canonical rule ${pattern}`);
   }
-  return 'risk tiers, exact dev dependency, preview target, and six release commands';
+  return 'risk tiers, two exact dev dependencies, immutable preview target, and 17 release commands';
+}
+
+function checkMaturityContracts() {
+  const reliability = readJson('release/reliability-objectives.json');
+  const privacy = readJson('release/health-privacy.json');
+  const performance = readJson('release/performance-budgets.json');
+  const ownership = readJson('release/ownership.json');
+  const channels = readJson('release/channels.json');
+  const governance = readJson('release/governance.json');
+  const regressions = readJson('release/regressions.json');
+  const sources = readJson('release/data-sources.json');
+  const deployment = readJson('release/deployment-assets.json');
+  assert(reliability.observationWindowDays === 28 && reliability.syntheticCadenceHours <= 6,
+    'reliability objectives must use a 28-day window and at least six-hour cadence');
+  assert(reliability.alertPolicy.releaseFreeze.criticalFailureCount === 1,
+    'one critical reliability failure must freeze release');
+  assert(Array.isArray(privacy.forbiddenFields)
+    && privacy.forbiddenFields.some(field => field.includes('user location')),
+    'health privacy contract must forbid precise location');
+  assert(performance.referenceProfile.name.includes('Pixel 7') && performance.timingsMs.coldRouteMax > 0,
+    'named performance profile and absolute routing budget required');
+  assert(Object.keys(ownership.categories).length >= 5 && ownership.reviewPolicy.ownerReviewRequiredForTier3,
+    'ownership categories and Tier 3 review required');
+  assert(channels.channels.previewCanary.minimumTier3SoakHours >= 24
+    && channels.promotion.mode === 'same-commit-fast-forward' && !channels.promotion.rebuildAllowed,
+  'Tier 3 canary and immutable promotion contract required');
+  assert(governance.maximumIntervalDays <= 184 && governance.eventTriggeredReviews.length >= 4,
+    'six-month and event-triggered governance review required');
+  assert(regressions.records.every(record => record.missedSignal && record.prevention),
+    'regression records must identify missed signals and prevention');
+  assert(['pcn', 'cpn', 'rail'].every(name => sources.sources[name]?.productionSha256),
+    'PCN, CPN and Rail source locks required');
+  assert(deployment.supplementalRuntimeAssets.includes('data/graph.json'),
+    'routing graph must be included in immutable deployment assets');
+  for (const file of [
+    '.github/CODEOWNERS', 'SECURITY.md', 'docs/ACCESSIBILITY.md',
+    'docs/architecture/PLATFORM_EVOLUTION.md', 'docs/data/NETWORK_REPRODUCIBILITY.md',
+    'docs/operations/INCIDENT_RESPONSE.md', 'docs/operations/RELEASE_CHANNELS.md',
+    'docs/security/THREAT_MODEL.md', 'contracts/v1/route-request.schema.json',
+    'contracts/v1/route-result.schema.json', 'contracts/v1/platform-capabilities.json'
+  ]) assert(fs.existsSync(path.join(ROOT, file)), `${file}: maturity contract missing`);
+  return 'P1/P2 reliability, privacy, security, accessibility, performance, recovery, data, ownership, canary, learning and platform contracts';
 }
 
 export function runVerification() {
@@ -480,6 +528,7 @@ export function runVerification() {
   run('Service-worker release boundary', checkServiceWorker);
   run('Closure generator reproducibility', checkClosureReproducibility);
   run('Release tooling contract', checkReleaseTooling);
+  run('Maturity contracts', checkMaturityContracts);
   run('Verifier is non-mutating', () => {
     const after = runtimeSnapshot();
     assert(JSON.stringify(after) === JSON.stringify(before), 'runtime asset hashes changed during verification');

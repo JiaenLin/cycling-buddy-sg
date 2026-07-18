@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "referenceProfile": {
+    "name": "Pixel 7 class / Fast 4G synthetic",
+    "viewport": { "width": 412, "height": 839 },
+    "deviceScaleFactor": 2.625,
+    "cpuSlowdownMultiplier": 4,
+    "network": { "latencyMs": 40, "downloadBitsPerSecond": 10000000, "uploadBitsPerSecond": 6000000 },
+    "browser": "Playwright Chromium pinned by package-lock.json",
+    "notes": "Deterministic local server, mocked basemap/weather and cold browser cache; route-cold includes graph transfer."
+  },
+  "assetBytes": {
+    "allApprovedRuntimeMax": 11200000,
+    "offlineShellMax": 3200000,
+    "routingGraphMax": 8000000,
+    "vendoredRuntimeMax": 900000,
+    "firstPartyJavaScriptMax": 100000
+  },
+  "storage": {
+    "installedCoreMax": 12000000,
+    "tileCacheMaximumEntries": 800
+  },
+  "timingsMs": {
+    "appReadyMax": 12000,
+    "firstContentfulPaintMax": 3500,
+    "largestContentfulPaintMax": 5000,
+    "themeInteractionMax": 750,
+    "coldRouteMax": 20000,
+    "warmRouteMax": 2500
+  },
+  "coreWebVitals": {
+    "cumulativeLayoutShiftMax": 0.1
+  },
+  "changeRule": "Increasing a budget requires a separate Tier 2 or Tier 3 update report with measurements, user impact, owner approval and rollback."
+}

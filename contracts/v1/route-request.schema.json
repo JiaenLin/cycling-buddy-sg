@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyclingbuddy.sg/contracts/v1/route-request.schema.json",
+  "title": "Route request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["start", "end", "profile"],
+  "properties": {
+    "start": { "$ref": "#/$defs/coordinate" },
+    "end": { "$ref": "#/$defs/coordinate" },
+    "profile": { "enum": ["max-cycling", "balanced"] },
+    "contractVersion": { "const": 1 }
+  },
+  "$defs": {
+    "coordinate": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": 103.5, "maximum": 104.2 },
+        { "type": "number", "minimum": 1.1, "maximum": 1.6 }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

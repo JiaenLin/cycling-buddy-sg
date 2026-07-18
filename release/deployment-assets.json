@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "supplementalRuntimeAssets": [
+    "data/graph.json",
+    "icons/og.png",
+    "robots.txt",
+    "sitemap.xml",
+    "llms.txt"
+  ],
+  "reason": "These files are shipped or referenced by the application but are not part of the eager service-worker shell. They must still be hashed and HTTP-verified for every release."
+}

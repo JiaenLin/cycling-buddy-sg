@@ -11,6 +11,7 @@
   --ink-dim:#54655C;
   --ink-faint:#889389;
   --accent:#0E86C7;
+  --accent-text:#006296;
   --accent-ink:#ffffff;
   --rec:#E02749;
   --cpn:#5E7169;
@@ -36,6 +37,7 @@
   --ink-dim:#9DB0A6;
   --ink-faint:#6C7D74;
   --accent:#38BDF8;
+  --accent-text:#5CCBFA;
   --accent-ink:#04202e;
   --rec:#FF3B5C;
   --cpn:#84958D;
@@ -136,7 +138,7 @@ body{
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);max-width:520px;margin:0 auto;
   display:flex;flex-direction:column;overflow:hidden;
 }
-.dock-handle{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;background:none;border:0;cursor:pointer;padding:9px 16px 5px;color:var(--ink);-webkit-appearance:none;appearance:none}
+.dock-handle{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;min-height:24px;background:none;border:0;cursor:pointer;padding:9px 16px 5px;color:var(--ink);-webkit-appearance:none;appearance:none}
 .dock-handle .grip{width:38px;height:4px;border-radius:2px;background:var(--line-strong)}
 .dock-peek{font-size:12.5px;font-weight:700;color:var(--ink-dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dock:not(.collapsed) .dock-peek{display:none}
@@ -207,7 +209,7 @@ body{
   border:1.5px solid var(--line);background:var(--panel-2);color:var(--ink);font-family:var(--ui)}
 .rt-opt.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel-2))}
 .rt-opt .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--ink-dim);width:74px;flex:0 0 auto}
-.rt-opt.sel .tag{color:var(--accent)}
+.rt-opt.sel .tag{color:var(--accent-text)}
 .rt-opt .mid{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
 .rt-opt .big{font-family:var(--mono);font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
 .rt-opt .sub{font-size:11.5px;color:var(--ink-dim)}
@@ -248,7 +250,7 @@ body{
 .sheet ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.65;color:var(--ink-dim)}
 .sheet ol{margin:8px 0;padding-left:20px;font-size:13.5px;line-height:1.75;color:var(--ink-dim)}
 .sheet ol b,.sheet ul b{color:var(--ink)}
-.sheet a{color:var(--accent)}
+.sheet a{color:var(--accent-text)}
 .sheet .close{position:absolute;top:16px;right:16px}
 .sheet .fine{font-size:12.5px;color:var(--ink-faint)}
 .faq{margin:8px 0}

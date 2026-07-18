@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cycling Buddy SG — Singapore Cycling Map, Routes &amp; Rain Radar</title>
 <meta name="description" content="The free cycling map for Singapore: all 7 Park Connector (PCN) loops, LTA cycling paths, the Rail Corridor, every park &amp; nature reserve, and bike parking island-wide. Offline turn-by-turn routing, live NEA rain radar, ride recording with GPX. Installs from your browser — no app store.">
 <meta name="author" content="Lin Jiaen">
@@ -208,8 +208,8 @@
     </div>
   </div>
 
-  <div class="scrim" id="scrim"></div>
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="About Cycling Buddy SG">
+  <div class="scrim" id="scrim" aria-hidden="true"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="About Cycling Buddy SG" aria-hidden="true" inert>
     <div class="grip"></div>
     <button class="iconbtn close" id="closeSheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h3>Cycling Buddy SG — your Singapore cycling companion</h3>
@@ -241,7 +241,7 @@
     <p class="fine">Built by <a href="https://github.com/JiaenLin" target="_blank" rel="noopener">Lin Jiaen</a> · © 2026 Lin Jiaen · All rights reserved.<br>Enjoying the app? Share it with your kakis — tap the share button up top.</p>
   </div>
 
-  <div class="sheet" id="installSheet" role="dialog" aria-modal="true" aria-label="Add to Home Screen">
+  <div class="sheet" id="installSheet" role="dialog" aria-modal="true" aria-label="Add to Home Screen" aria-hidden="true" inert>
     <div class="grip"></div>
     <button class="iconbtn close" id="closeInstall" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h3>Add to Home Screen</h3>

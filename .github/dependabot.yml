@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "02:00"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels: [dependencies, security]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "02:30"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 5
+    labels: [dependencies, security]
