@@ -19,7 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Push events may contain more than one commit. The risk classifier
+          # must always be able to diff GitHub's exact `before` SHA.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
