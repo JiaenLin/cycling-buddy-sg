@@ -9,6 +9,10 @@ lazy 7.5 MB graph transfer; warm routing measures computation after that graph i
 budgets cover every release-manifest asset, the eager offline shell, vendored code, first-party
 JavaScript and the service-worker tile-entry cap.
 
+Interaction timings use the browser's monotonic performance clock so test-runner IPC and runner
+scheduling are excluded. Theme timing ends after the next painted frame; routing timing ends when a
+new route result replaces the previous state.
+
 ```text
 npm run verify:performance
 npm run verify:performance:browser

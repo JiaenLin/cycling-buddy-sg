@@ -39,24 +39,32 @@ test('Pixel 7 Fast 4G profile stays within startup, interaction, routing and Cor
     };
   });
 
-  const themeStart = performance.now();
-  await page.getByRole('button', { name: 'Switch light or dark theme' }).click();
+  const themeInteraction = await page.evaluate(async () => {
+    const start = performance.now();
+    document.getElementById('themeBtn').click();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return performance.now() - start;
+  });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  const themeInteraction = performance.now() - themeStart;
 
   await page.getByRole('button', { name: 'Plan a route' }).click();
-  const coldRouteStart = performance.now();
-  await page.evaluate(() => {
+  const coldRoute = await page.evaluate(async () => {
+    const start = performance.now();
     handleRouteClick([103.7859, 1.4370]);
     handleRouteClick([103.9040, 1.4043]);
+    while (!routeResult) await new Promise(requestAnimationFrame);
+    return performance.now() - start;
   });
   await expect(page.locator('#rtDirs')).toBeVisible({ timeout: budgets.timingsMs.coldRouteMax });
-  const coldRoute = performance.now() - coldRouteStart;
 
-  const warmRouteStart = performance.now();
-  await page.locator('#rtRevBtn').click();
+  const warmRoute = await page.evaluate(async () => {
+    const previousResult = routeResult;
+    const start = performance.now();
+    document.getElementById('rtRevBtn').click();
+    while (routeResult === previousResult) await new Promise(requestAnimationFrame);
+    return performance.now() - start;
+  });
   await expect.poll(() => page.locator('#rtDirs .rt-step').count()).toBeGreaterThan(0);
-  const warmRoute = performance.now() - warmRouteStart;
 
   const evidence = { appReady, ...webVitals, themeInteraction, coldRoute, warmRoute };
   console.log(`PERFORMANCE_EVIDENCE ${JSON.stringify(evidence)}`);
