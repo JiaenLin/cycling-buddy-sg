@@ -93,6 +93,12 @@ export async function openArtifact(page, options = {}) {
     window.__swTest = { messages, worker, registration, listeners };
   }, options.serviceWorkerMode || 'current');
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof map !== 'undefined' && Boolean(map.getLayer('closed-marker')));
+  await page.waitForFunction(() => {
+    try {
+      return Boolean(map.getLayer('closed-marker'));
+    } catch {
+      return false;
+    }
+  });
   return runtimeErrors;
 }
