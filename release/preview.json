@@ -2,6 +2,9 @@
   "repository": "JiaenLin/cycling-buddy-sg-preview",
   "branch": "main",
   "url": "https://jiaenlin.github.io/cycling-buddy-sg-preview/",
-  "promotion": "same-commit-fast-forward",
-  "rule": "Push the candidate commit unchanged, verify CI and all manifest assets at the preview URL, record owner approval, then fast-forward production to the identical commit without rebuilding."
+  "productionRepository": "JiaenLin/cycling-buddy-sg",
+  "productionBranch": "production",
+  "productionUrl": "https://jiaenlin.github.io/cycling-buddy-sg/",
+  "promotion": "same-commit-fast-forward-to-production",
+  "rule": "Merge through protected main, wait for both checks on the resulting candidate SHA, push that exact SHA unchanged to preview, verify all manifest assets and record owner approval, then fast-forward the protected production branch to the identical SHA without rebuilding."
 }

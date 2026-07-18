@@ -443,7 +443,12 @@ function checkReleaseTooling() {
   const preview = readJson('release/preview.json');
   assert(/^JiaenLin\/[A-Za-z0-9._-]+$/.test(preview.repository || ''), 'preview.json: repository is invalid');
   assert(preview.branch === 'main' && /^https:\/\//.test(preview.url || ''), 'preview.json: main/HTTPS target required');
-  assert(preview.promotion === 'same-commit-fast-forward', 'preview.json: immutable promotion rule required');
+  assert(preview.productionRepository === 'JiaenLin/cycling-buddy-sg',
+    'preview.json: production repository must be explicit');
+  assert(preview.productionBranch === 'production' && /^https:\/\//.test(preview.productionUrl || ''),
+    'preview.json: protected production branch/HTTPS target required');
+  assert(preview.promotion === 'same-commit-fast-forward-to-production',
+    'preview.json: immutable protected-branch promotion rule required');
   const attributes = read('.gitattributes');
   for (const pattern of ['*.json text eol=lf', '*.geojson text eol=lf', '*.js text eol=lf', '*.mjs text eol=lf']) {
     assert(attributes.includes(pattern), `.gitattributes: missing canonical rule ${pattern}`);
