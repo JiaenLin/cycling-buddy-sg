@@ -4,7 +4,7 @@
     103.86549,
     1.28473
   ],
-  "risk_km": 1.16,
+  "risk_km": 1.14,
   "active": [
     {
       "name": "Gardens by the Bay — Bay South",
@@ -16,5 +16,5 @@
       "url": "https://www.gardensbythebay.com.sg/content/dam/gbb-2021/image/about-us/media-room/2026/wetlands-by-the-bay/Diversion-map.pdf"
     }
   ],
-  "source": "Gardens by the Bay notice; affected stretch = Southern Ridges Loop (loop 3) through Gardens by the Bay, from pcn.lines.geojson"
+  "source": "Gardens by the Bay notice; affected stretch = Southern Ridges Loop (loop 3), clipped between user-confirmed waterfront boundaries on Gardens by the Bay and Marina Barrage PCN features"
 }
