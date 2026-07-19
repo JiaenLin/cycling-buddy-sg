@@ -60,5 +60,12 @@
     "policy": "A closure with an ISO end date that has passed is a release-blocking staleness signal. A closure with an open-ended end date (for example ~2028) must be re-verified against the official source at least every reviewIntervalDays; bump lastReviewedOn when you re-confirm it.",
     "lastReviewedOn": "2026-07-18",
     "reviewIntervalDays": 120
+  },
+  "graph": {
+    "output": "data/graph.json",
+    "base": "OpenStreetMap via build/build_graph.py (raw OSM ways minus expressways, contracted)",
+    "fusion": "build/fuse_graph.mjs — gap-fill of NParks PCN, LTA CPN and the open rail corridor into the routable graph (COVER=18m, WELD=35m)",
+    "licence": "OpenStreetMap ODbL; NParks/LTA under the Singapore Open Data Licence",
+    "note": "Derived artifact (OSM base + fused official geometry); a full rebuild needs the raw OSM download, so graph.json is not reproducible from the repository alone."
   }
 }

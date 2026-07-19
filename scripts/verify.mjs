@@ -290,7 +290,7 @@ function checkDatasets() {
 function checkGraphAndRouter() {
   const graph = readJson('data/graph.json');
   assert(Array.isArray(graph.nodes) && Array.isArray(graph.edges), 'graph.json: nodes/edges arrays required');
-  assert(graph.nodes.length === 116331 && graph.edges.length === 172325,
+  assert(graph.nodes.length === 117812 && graph.edges.length === 175220,
     `graph.json: fixture counts changed (${graph.nodes.length} nodes, ${graph.edges.length} edges)`);
   graph.nodes.forEach((node, index) => {
     assert(Array.isArray(node) && node.length === 2 && node.every(Number.isFinite),
@@ -321,11 +321,16 @@ function checkGraphAndRouter() {
   const fixtures = [
     {
       name: 'Bay South boundary', start: [103.86283, 1.28569], end: [103.87133, 1.28062],
-      maxMetres: 1757.91, balancedMetres: 1757.91, maxCycling: 0.986854, carWay: false
+      maxMetres: 1473.02, balancedMetres: 1473.02, maxCycling: 0.984312, carWay: false
     },
     {
       name: 'Woodlands to Punggol', start: [103.7859, 1.4370], end: [103.9040, 1.4043],
-      maxMetres: 21429.25, balancedMetres: 21004.98, maxCycling: 0.979343, carWay: true
+      maxMetres: 21009.30, balancedMetres: 20590.37, maxCycling: 0.978930, carWay: true
+    },
+    {
+      // Fused-graph capability: the open rail corridor now routes end to end (was: not routable).
+      name: 'Rail Corridor', start: [103.799031, 1.289053], end: [103.81806, 1.280575],
+      maxMetres: 2605.76, balancedMetres: 2605.76, maxCycling: 1, carWay: false
     }
   ];
   for (const fixture of fixtures) {
