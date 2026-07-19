@@ -133,6 +133,7 @@ export function evaluateWindow(reports, config = objectives) {
 }
 
 export function simulatedReport(mode = 'healthy') {
+  const minimumAssets = objectives.objectives.requiredAssets.minimumAvailable;
   const report = {
     schemaVersion: 1,
     observedAt: '2026-07-18T00:00:00.000Z',
@@ -140,7 +141,7 @@ export function simulatedReport(mode = 'healthy') {
     channel: 'test',
     checks: {
       appLoad: { ok: true, durationMs: 1000 },
-      requiredAssets: { ok: true, expected: 27, available: 27, hashMismatches: 0 },
+      requiredAssets: { ok: true, expected: minimumAssets, available: minimumAssets, hashMismatches: 0 },
       serviceWorker: { ok: true, installed: true, updateLoops: 0 },
       routing: { ok: true, durationMs: 500 },
       clientErrors: { ok: true, count: 0, codes: [] },
@@ -148,7 +149,7 @@ export function simulatedReport(mode = 'healthy') {
     }
   };
   if (mode === 'missing-asset') {
-    Object.assign(report.checks.requiredAssets, { ok: false, available: 26 });
+    Object.assign(report.checks.requiredAssets, { ok: false, available: minimumAssets - 1 });
   } else if (mode === 'update-loop') {
     Object.assign(report.checks.serviceWorker, { ok: false, updateLoops: 2 });
   } else if (mode !== 'healthy') {

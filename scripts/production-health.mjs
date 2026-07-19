@@ -15,7 +15,9 @@ const after = flag => {
 const baseUrl = new URL(after('--url') || process.env.HEALTH_URL || 'https://jiaenlin.github.io/cycling-buddy-sg/');
 if (!baseUrl.pathname.endsWith('/')) baseUrl.pathname += '/';
 const output = path.resolve(after('--output') || path.join(root, '.artifacts', 'production-health.json'));
-const baselinePath = path.resolve(after('--baseline') || path.join(root, 'release', 'baselines', 'cbsg-v19.json'));
+const reliability = JSON.parse(fs.readFileSync(path.join(root, 'release', 'reliability-objectives.json'), 'utf8'));
+const configuredBaseline = path.join(root, 'release', 'baselines', `${reliability.referenceRelease}.json`);
+const baselinePath = path.resolve(after('--baseline') || configuredBaseline);
 const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
 const channel = after('--channel') || process.env.HEALTH_CHANNEL || 'stable';
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');

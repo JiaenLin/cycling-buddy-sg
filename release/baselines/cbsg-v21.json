@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "id": "cbsg-v21",
+    "candidateCommit": "87ad9f2b33debdf2ca749d9c76ccfe94bc9d4133",
+    "candidateCommitTime": "2026-07-19T11:50:39+08:00",
+    "serviceWorkerVersion": "cbsg-v21",
+    "riskTier": 3,
+    "riskJustification": "Approved v21 production baseline for future monitoring and development after physical, automated, preview and production verification",
+    "deploymentUrl": "https://jiaenlin.github.io/cycling-buddy-sg/",
+    "rollbackCommit": "9a86805b60384ee8d6e8945b928e8d17ce88bc88",
+    "previewUrl": "https://jiaenlin.github.io/cycling-buddy-sg-preview/",
+    "approval": "Owner approved exact SHA for production with a one-time v21 soak waiver after 31m38s; all non-time gates and production verification passed on 2026-07-19; the full Tier 3 soak applies from v22"
+  },
+  "datasets": {
+    "pcn": {
+      "features": 1177,
+      "totalKm": 334.8,
+      "loops": 7
+    },
+    "cpn": {
+      "features": 8527,
+      "totalKm": 432.9
+    },
+    "rail": {
+      "features": 71,
+      "totalKm": 24.2
+    },
+    "parks": {
+      "features": 305,
+      "count": 305
+    },
+    "racks": {
+      "features": 396,
+      "count": 396,
+      "spaces": 19329
+    },
+    "closures": {
+      "features": 2,
+      "risks": 1,
+      "riskKm": 1.14
+    },
+    "weatherZones": {
+      "features": 47
+    },
+    "routingGraph": {
+      "nodes": 116331,
+      "edges": 172325
+    }
+  },
+  "verification": {
+    "command": "npm run verify",
+    "status": "pass",
+    "checks": [
+      {
+        "name": "First-party syntax",
+        "detail": "28 JavaScript and 3 Python files"
+      },
+      {
+        "name": "JSON parsing",
+        "detail": "35 JSON/GeoJSON/manifest files"
+      },
+      {
+        "name": "Documentation links",
+        "detail": "16 Markdown files; 5 existing local links"
+      },
+      {
+        "name": "Production data contracts",
+        "detail": "10 production data/meta files; counts, schemas, bounds, lengths, properties and sources"
+      },
+      {
+        "name": "Routing graph and smoke fixtures",
+        "detail": "116331 nodes, 172325 edges, 2 fixed route fixtures"
+      },
+      {
+        "name": "HTML, DOM, assets, facts and attribution",
+        "detail": "79 unique DOM ids, 74 app references, 12 local assets"
+      },
+      {
+        "name": "Service-worker release boundary",
+        "detail": "cbsg-v21; 27 existing shell assets; opt-in update contract"
+      },
+      {
+        "name": "Closure generator reproducibility",
+        "detail": "clean temporary rebuild reproduces both closure outputs byte-for-byte"
+      },
+      {
+        "name": "Release tooling contract",
+        "detail": "risk tiers, two exact dev dependencies, immutable preview target, and 17 release commands"
+      },
+      {
+        "name": "Maturity contracts",
+        "detail": "P1/P2 reliability, privacy, security, accessibility, performance, recovery, data, ownership, canary, learning and platform contracts"
+      },
+      {
+        "name": "Verifier is non-mutating",
+        "detail": "27 runtime asset hashes unchanged"
+      }
+    ]
+  },
+  "assets": {
+    "app.js": {
+      "bytes": 73223,
+      "sha256": "12afcd8615eb41a5f5a0850f8265f16b4ee586d6b6187cdbdd45edc6c3a9fe0e"
+    },
+    "data/closures.geojson": {
+      "bytes": 891,
+      "sha256": "c4e54e66dac0bbf5bb13460b604545cc50bfd4cabb13ac5847be37580ae1be53"
+    },
+    "data/closures.meta.json": {
+      "bytes": 849,
+      "sha256": "fcda4728cf989304cb7f8b656c92c2d0394edd017a154e08b39539eb9eeae4d7"
+    },
+    "data/cpn.lines.geojson": {
+      "bytes": 1313340,
+      "sha256": "3c94464d7dab738267034a36be51da52e4b155b1c8376d69e94bae086c7d7501"
+    },
+    "data/cpn.meta.json": {
+      "bytes": 82,
+      "sha256": "8a8b987139be9bfeb1b29d2ae27e9254a64edf8de7b4cf8a8295cba77f29405d"
+    },
+    "data/graph.json": {
+      "bytes": 7525132,
+      "sha256": "91d84895424725e5a576d90213d2188fa745da2cc5d4a2b0eae808753e339ab4"
+    },
+    "data/parks.meta.json": {
+      "bytes": 212,
+      "sha256": "a5209007f8dc0bba36f653cc7db8dce262433ca74519451656c1fbe83c9d0c57"
+    },
+    "data/parks.polys.geojson": {
+      "bytes": 276744,
+      "sha256": "3600a4c11fb1c019d20703cf5caf893fe1a69dd00c18f27fc3ba6141a00aa923"
+    },
+    "data/pcn.lines.geojson": {
+      "bytes": 313932,
+      "sha256": "03bced1c5b9e0b33cefb5d390243b9570c51e31153ba6edf5fca295e35bfdeae"
+    },
+    "data/pcn.meta.json": {
+      "bytes": 391,
+      "sha256": "d92dd504877775731b18ed495804990d38c1eaf1e622a476514c52f4835d1ac3"
+    },
+    "data/racks.meta.json": {
+      "bytes": 177,
+      "sha256": "cfd7caef7e435fced5a0510ae729fef64b48641b16e879edca76cce18699d5d7"
+    },
+    "data/racks.points.geojson": {
+      "bytes": 48782,
+      "sha256": "76a536a1d6d7bbd3659987b053569c2aca3c49663922d648f238ebdc71cf6f87"
+    },
+    "data/rail.lines.geojson": {
+      "bytes": 13630,
+      "sha256": "6f8e621275bf706eef1e6496ac011b6ee4caf37d16de75f0676e1ca51c507ce8"
+    },
+    "data/rail.meta.json": {
+      "bytes": 266,
+      "sha256": "c898c5c1bea1b4add46025bed5efcb613d78e016a920c6c9a979fd65d84febef"
+    },
+    "data/wx.zones.geojson": {
+      "bytes": 13771,
+      "sha256": "3550d4ae85e43c761b28203a22b5d284f6140532b4280545ef73c04b725265d5"
+    },
+    "icons/apple-touch-icon.png": {
+      "bytes": 9160,
+      "sha256": "c414f2c889d0e8ce561ba05c46662106a46848336bdf0a0037390f79afd3e59a"
+    },
+    "icons/icon-192-maskable.png": {
+      "bytes": 9736,
+      "sha256": "0babd2dcd55655663124f014e38ad7e54a8a59a838c0fd378b2d24139e11f328"
+    },
+    "icons/icon-192.png": {
+      "bytes": 13011,
+      "sha256": "7212e85a001eeee1872b6900862824cca4df12ea04db437d387e034dc7da7d3e"
+    },
+    "icons/icon-512-maskable.png": {
+      "bytes": 28191,
+      "sha256": "e077d655aa08bd30c3df9a2b912aa8a8bbf4b537782ce1fe2447ce54033c21a1"
+    },
+    "icons/icon-512.png": {
+      "bytes": 35789,
+      "sha256": "7f3888f65ebf2c5877a46343611b0cb0417936ac59702a4c6ce8525b434dcebd"
+    },
+    "icons/og.png": {
+      "bytes": 104639,
+      "sha256": "733a4d5190db2bb62fe0efe950379be41edb06fcef61f3a48e7467bf18459257"
+    },
+    "index.html": {
+      "bytes": 23922,
+      "sha256": "9895fa83508585c7aa1624c9c7f5ac2cc5a321e609cf0cbb829d73e17418996a"
+    },
+    "llms.txt": {
+      "bytes": 1928,
+      "sha256": "f779ceaeefcedafec2ee2a232de266e47575896b30965088fa58dcc5a6931709"
+    },
+    "manifest.webmanifest": {
+      "bytes": 892,
+      "sha256": "1cb3ad41a0c51c6514108532ba288b98dbd8af7ce6f185629ffd2a68f2de66af"
+    },
+    "robots.txt": {
+      "bytes": 89,
+      "sha256": "af16fc778dbeb3a765f38f077d8510af6ee5eb78930dd4f475240c01519f63ca"
+    },
+    "router.js": {
+      "bytes": 8714,
+      "sha256": "b7ae9439561c826dfcbe6d423dbdd71216c113dfa5ef20ce38c89ad2d502c1bd"
+    },
+    "sitemap.xml": {
+      "bytes": 253,
+      "sha256": "16f23de2306d3b712bee1cfaa138f119248443a0249a4bc4b33a7c52712cb293"
+    },
+    "style.css": {
+      "bytes": 21710,
+      "sha256": "9a101675bd2e242a719cfda7da9053138275bf73408fbd860fc5325a56e0e595"
+    },
+    "sw.js": {
+      "bytes": 3895,
+      "sha256": "e5abf441f8856be734465e8696d329ed1572ebabed10a873a1d0a5beaced93e2"
+    },
+    "vendor/goatcounter-count.js": {
+      "bytes": 9213,
+      "sha256": "792b7abd26c1fb6ae62906833e09a301251e2641816e69e4f95aba518f3fe3f0"
+    },
+    "vendor/maplibre-gl.css": {
+      "bytes": 65534,
+      "sha256": "576b085fdd9487a65a19215328c1e086c07ce5bf6da09b666b3806d3d008dae9"
+    },
+    "vendor/maplibre-gl.js": {
+      "bytes": 803086,
+      "sha256": "be9633c4d870e26fb37f1cfe5c5a77181667114003ea16207ac7850d8da8add1"
+    }
+  }
+}

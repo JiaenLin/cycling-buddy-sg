@@ -464,6 +464,7 @@ function checkReleaseTooling() {
 
 function checkMaturityContracts() {
   const reliability = readJson('release/reliability-objectives.json');
+  const referenceBaseline = readJson(`release/baselines/${reliability.referenceRelease}.json`);
   const privacy = readJson('release/health-privacy.json');
   const performance = readJson('release/performance-budgets.json');
   const ownership = readJson('release/ownership.json');
@@ -474,6 +475,11 @@ function checkMaturityContracts() {
   const deployment = readJson('release/deployment-assets.json');
   assert(reliability.observationWindowDays === 28 && reliability.syntheticCadenceHours <= 6,
     'reliability objectives must use a 28-day window and at least six-hour cadence');
+  assert(referenceBaseline.release?.id === reliability.referenceRelease
+    && referenceBaseline.release?.serviceWorkerVersion === reliability.referenceRelease,
+  'configured reliability release must resolve to its matching approved baseline');
+  assert(reliability.objectives.requiredAssets.minimumAvailable === Object.keys(referenceBaseline.assets || {}).length,
+    'required-asset floor must match the configured release baseline');
   assert(reliability.alertPolicy.releaseFreeze.criticalFailureCount === 1,
     'one critical reliability failure must freeze release');
   assert(Array.isArray(privacy.forbiddenFields)

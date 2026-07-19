@@ -3,10 +3,10 @@
   "service": "Cycling Buddy SG",
   "observationWindowDays": 28,
   "syntheticCadenceHours": 6,
-  "referenceRelease": "cbsg-v19",
+  "referenceRelease": "cbsg-v21",
   "objectives": {
     "appLoad": { "targetPercent": 99.9, "maxDurationMs": 12000, "critical": true },
-    "requiredAssets": { "targetPercent": 100, "minimumAvailable": 27, "maximumHashMismatches": 0, "critical": true },
+    "requiredAssets": { "targetPercent": 100, "minimumAvailable": 32, "maximumHashMismatches": 0, "critical": true },
     "serviceWorker": { "targetPercent": 99.0, "maximumUpdateLoops": 0, "critical": true },
     "routing": { "targetPercent": 99.0, "maxDurationMs": 20000, "critical": true },
     "clientErrors": { "targetPercent": 99.9, "maximumCount": 0, "critical": true },
