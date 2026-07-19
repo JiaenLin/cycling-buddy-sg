@@ -159,6 +159,29 @@ test('records location updates and generates a local GPX file', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('live navigation guides along a route and reroutes when off it', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  // start nav and feed a position on the route -> the guidance banner appears
+  await page.evaluate(() => {
+    setLocActive(true); startNav();
+    const c = routeResult.coords[Math.floor(routeResult.coords.length / 3)];
+    onPos({ coords: { latitude: c[1], longitude: c[0], accuracy: 5, speed: 4 }, timestamp: 1_000 });
+  });
+  await expect(page.locator('#navBanner')).toBeVisible();
+  // feed positions well off the route -> after a few, it reroutes from the current position
+  await page.evaluate(async () => {
+    await ensureGraph();
+    for (let k = 0; k < 4; k++) onPos({ coords: { latitude: 1.3200, longitude: 103.8300, accuracy: 5, speed: 4 }, timestamp: 2_000 + k });
+  });
+  await expect.poll(() => page.evaluate(() => Math.abs(routeStart[0] - 103.83) < 0.02)).toBe(true);
+  await page.evaluate(() => stopNav());
+  await expect(page.locator('#navBanner')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test('offline POI search sets a route destination by name', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);

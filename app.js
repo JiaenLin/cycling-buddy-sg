@@ -371,6 +371,7 @@ function onPos(e){
   loadWeather(); updateWxUI();   // forecast for the area you're now in (throttled fetch)
   if(recording) pushTrack(user, e.timestamp);
   if(headingMode){ camTarget.center=[user.lng,user.lat]; const b=currentHeading(); if(b!=null) camTarget.bearing=b; }
+  if(navActive) liveGuidance();
 }
 function computeNearest(){
   if(!user || !PCN_FEATURES.length){ nearest=null; return; }
@@ -1119,7 +1120,58 @@ function updateRtButtons(){
   $('rtRevBtn').hidden = !(routeStart&&routeEnd);
   $('rtGpxBtn').hidden = !routeResult;
   $('rtImgBtn').hidden = !routeResult;
+  $('rtGoBtn').hidden = !routeResult;
 }
+// ---------- live turn-by-turn navigation ----------
+let navActive=false, offRouteCount=0;
+function bearingDeg(a,b){ const y=Math.sin((b[0]-a[0])*D2R)*Math.cos(b[1]*D2R); const x=Math.cos(a[1]*D2R)*Math.sin(b[1]*D2R)-Math.sin(a[1]*D2R)*Math.cos(b[1]*D2R)*Math.cos((b[0]-a[0])*D2R); return (Math.atan2(y,x)/D2R+360)%360; }
+function projectOnRoute(ll, coords){
+  const kx=Math.cos(ll[1]*D2R)*111320, ky=110540, px=ll[0]*kx, py=ll[1]*ky;
+  let best={dist:Infinity,i:0,t:0};
+  for(let i=0;i<coords.length-1;i++){
+    const ax=coords[i][0]*kx, ay=coords[i][1]*ky, bx=coords[i+1][0]*kx, by=coords[i+1][1]*ky;
+    const dx=bx-ax, dy=by-ay, L2=dx*dx+dy*dy;
+    const t=L2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/L2)):0;
+    const d=Math.hypot(px-(ax+t*dx), py-(ay+t*dy));
+    if(d<best.dist) best={dist:d,i,t};
+  }
+  return best;
+}
+function nextTurn(coords, proj){
+  let cur=bearingDeg(coords[proj.i], coords[proj.i+1]);
+  let acc=(1-proj.t)*haversine(coords[proj.i][1],coords[proj.i][0],coords[proj.i+1][1],coords[proj.i+1][0]);
+  for(let j=proj.i+1;j<coords.length-1;j++){
+    const b2=bearingDeg(coords[j],coords[j+1]); let turn=b2-cur; while(turn>180)turn-=360; while(turn<-180)turn+=360;
+    if(Math.abs(turn)>=32) return {dist:acc, text:(Math.abs(turn)>=115?(turn<0?'Sharp left':'Sharp right'):(turn<0?'Turn left':'Turn right'))};
+    acc+=haversine(coords[j][1],coords[j][0],coords[j+1][1],coords[j+1][0]); cur=b2;
+  }
+  return null;
+}
+function setNavBanner(main, sub){ const el=$('navBanner'); if(!el) return; el.hidden=false; el.querySelector('.nav-main').textContent=main; el.querySelector('.nav-sub').textContent=sub||''; }
+function liveGuidance(){
+  if(!navActive || !routeResult || !user) return;
+  const coords=routeResult.coords; if(!coords || coords.length<2) return;
+  const proj=projectOnRoute([user.lng,user.lat], coords);
+  if(proj.dist>45){ if(++offRouteCount>=3){ offRouteCount=0; navReroute(); } else setNavBanner('Off route','head back to the highlighted line'); return; }
+  offRouteCount=0;
+  const end=coords[coords.length-1], dEnd=haversine(user.lat,user.lng,end[1],end[0]);
+  if(dEnd<30){ setNavBanner('You’ve arrived 🎉',''); navActive=false; const b=$('rtGoBtn'); if(b) b.textContent='Go'; return; }
+  const nt=nextTurn(coords, proj);
+  if(nt && nt.dist<dEnd+50) setNavBanner(nt.text,'in '+Math.round(nt.dist)+' m');
+  else setNavBanner('Continue',Math.round(dEnd)+' m to go');
+}
+function navReroute(){
+  if(!routeEnd || !user) return;
+  toast('Off route — rerouting');
+  ensureGraph().then(ok=>{ if(!ok) return;
+    const two=Router.routeTwo([user.lng,user.lat], routeEnd); if(!two) return;
+    routeStart=[user.lng,user.lat]; routeOptions=two; routeResult=two[routeSel]||two.max;
+    refreshRouteSource(); renderDirs(routeResult.directions); updateRtButtons(); setNavArrows(navStage===2);
+  });
+}
+function startNav(){ if(!routeResult) return; navActive=true; offRouteCount=0; if(!locActive) geo.trigger(); $('rtGoBtn').textContent='End'; setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance(); }
+function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.textContent='Go'; const el=$('navBanner'); if(el) el.hidden=true; }
+$('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 $('rtSearch').addEventListener('input', ()=>{
   const q=$('rtSearch').value.trim().toLowerCase(), box=$('rtResults');
   if(q.length<2){ box.hidden=true; box.innerHTML=''; return; }
@@ -1145,7 +1197,7 @@ $('rtRevBtn').addEventListener('click', ()=>{
   if(!routeStart||!routeEnd) return;
   const a=routeStart, b=routeEnd; clearRoutePoints(); setPoint('start',b); setPoint('end',a); computeRoute();
 });
-$('rtClrBtn').addEventListener('click', ()=>{ clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); hideOptions(); rtHint('Tap the map to set your start.'); updateRtButtons(); });
+$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); hideOptions(); rtHint('Tap the map to set your start.'); updateRtButtons(); });
 $('rtGpxBtn').addEventListener('click', ()=>{
   if(!routeResult) return;
   try{
