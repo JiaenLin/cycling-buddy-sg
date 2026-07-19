@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
-import { evaluateHealth } from './health-evaluator.mjs';
+import { evaluateHealth, updateLoopCount } from './health-evaluator.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -123,16 +123,26 @@ async function checkBrowser() {
     await page.waitForFunction(() => typeof map !== 'undefined' && Boolean(map.getLayer('closed-marker')), null, { timeout: 20000 });
     Object.assign(report.checks.appLoad, { ok: true, durationMs: rounded(performance.now() - loadStarted) });
 
-    const worker = await page.evaluate(async () => {
-      if (!('serviceWorker' in navigator)) return { installed: false, updateLoops: 0 };
+    const workerObservation = await page.evaluate(async () => {
+      if (!('serviceWorker' in navigator)) {
+        return { installed: false, hadControllerAtObservationStart: false, controllerChanges: 0 };
+      }
       const registration = await navigator.serviceWorker.ready;
-      let updateLoops = 0;
-      navigator.serviceWorker.addEventListener('controllerchange', () => { updateLoops += 1; });
+      const hadControllerAtObservationStart = Boolean(navigator.serviceWorker.controller);
+      let controllerChanges = 0;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { controllerChanges += 1; });
       await registration.update();
       await registration.update();
       await new Promise(resolve => setTimeout(resolve, 1500));
-      return { installed: Boolean(registration.active), updateLoops };
+      return { installed: Boolean(registration.active), hadControllerAtObservationStart, controllerChanges };
     });
+    const worker = {
+      installed: workerObservation.installed,
+      updateLoops: updateLoopCount(
+        workerObservation.hadControllerAtObservationStart,
+        workerObservation.controllerChanges
+      )
+    };
     Object.assign(report.checks.serviceWorker, { ok: worker.installed && worker.updateLoops === 0, ...worker });
 
     const routeStarted = performance.now();

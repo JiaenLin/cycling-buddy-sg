@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateHealth, evaluateWindow, simulatedReport } from '../../scripts/health-evaluator.mjs';
+import {
+  evaluateHealth, evaluateWindow, simulatedReport, updateLoopCount
+} from '../../scripts/health-evaluator.mjs';
+
+test('initial service-worker control is not counted as an update loop', () => {
+  assert.equal(updateLoopCount(false, 0), 0);
+  assert.equal(updateLoopCount(false, 1), 0);
+  assert.equal(updateLoopCount(false, 2), 1);
+  assert.equal(updateLoopCount(true, 1), 1);
+  assert.throws(() => updateLoopCount(false, -1), /non-negative integer/);
+});
 
 test('healthy synthetic report passes without freezing release', () => {
   const result = evaluateHealth(simulatedReport('healthy'));

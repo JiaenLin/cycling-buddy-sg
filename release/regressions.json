@@ -12,6 +12,17 @@
       "missedSignal": "The closure generator had aggregate length checks but no fixture for exact endpoints and marker length-midpoint.",
       "prevention": "tests/node/closure-route.test.mjs locks both shoreline endpoints and proves the accepted warning marker remains on that exact route.",
       "status": "closed"
+    },
+    {
+      "id": "NM-2026-07-19-health-first-control",
+      "kind": "near-miss",
+      "detectedAt": "2026-07-19",
+      "summary": "The first live preview health run classified a clean profile's initial service-worker controller acquisition as an update loop.",
+      "escapedToProduction": false,
+      "detectedBy": "pre-canary synthetic health verification",
+      "missedSignal": "The controller-change counter did not distinguish initial control from a later controller replacement.",
+      "prevention": "scripts/health-evaluator.mjs now excludes at most one initial acquisition, while tests/node/health-evaluator.test.mjs proves subsequent controller changes still count as update loops.",
+      "status": "closed"
     }
   ]
 }

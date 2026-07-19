@@ -8,6 +8,13 @@ const objectives = JSON.parse(fs.readFileSync(path.join(root, 'release', 'reliab
 
 const finiteNumber = value => typeof value === 'number' && Number.isFinite(value);
 
+export function updateLoopCount(hadControllerAtObservationStart, controllerChanges) {
+  if (!Number.isInteger(controllerChanges) || controllerChanges < 0) {
+    throw new Error('controllerChanges must be a non-negative integer');
+  }
+  return Math.max(0, controllerChanges - (hadControllerAtObservationStart ? 0 : 1));
+}
+
 export function evaluateHealth(report, config = objectives) {
   const reasons = [];
   const checks = report?.checks || {};
