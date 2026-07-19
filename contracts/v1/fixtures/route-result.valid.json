@@ -1,0 +1,11 @@
+{
+  "contractVersion": 1,
+  "distanceMetres": 5230.4,
+  "cyclingShare": 0.82,
+  "geometry": [
+    [103.8007, 1.3006],
+    [103.8203, 1.3109],
+    [103.8641, 1.3216]
+  ],
+  "warnings": ["Route uses roads for 320 m — a helmet is recommended."]
+}
