@@ -236,6 +236,10 @@ body{
 .btn{appearance:none;-webkit-appearance:none;flex:1;padding:11px 12px;border-radius:12px;font-size:13.5px;font-weight:700;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:7px;font-family:var(--ui)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .btn:active{transform:scale(.98)}
+/* Author display: rules outrank the UA's [hidden]{display:none}; restate it so the route
+   controls (Reverse/Clear/GPX, the road notice, the key and the options) stay hidden until
+   a route exists. */
+.btn[hidden],.rt-notice[hidden],.rt-key[hidden],#rtOptions[hidden]{display:none}
 .live-dot{width:9px;height:9px;border-radius:50%;background:var(--rec);animation:blink 1.4s ease-in-out infinite}
 @keyframes blink{50%{opacity:.3}}
 

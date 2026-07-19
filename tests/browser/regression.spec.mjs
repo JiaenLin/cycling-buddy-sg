@@ -114,6 +114,18 @@ test('keeps a planned route through stray taps, drag-edits endpoints, and only c
   expect(errors).toEqual([]);
 });
 
+test('hides route controls until a route exists and reports no nearby path for far taps', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  // Reverse/Clear/GPX, the road notice, the key and the options must not leak before a route exists.
+  for (const id of ['#rtRevBtn', '#rtClrBtn', '#rtGpxBtn', '#rtKey', '#rtNotice', '#rtOptions'])
+    await expect(page.locator(id)).toBeHidden();
+  // A tap far from any routable path reports no nearby path, not a misleading route.
+  await page.evaluate(() => { handleRouteClick([103.8000, 1.3000]); handleRouteClick([104.6000, 1.2000]); });
+  await expect(page.locator('#toast')).toContainText('No cycling path near there', { timeout: 40000 });
+  expect(errors).toEqual([]);
+});
+
 test('records location updates and generates a local GPX file', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => document.querySelectorAll('#lgBody .lrow').length >= 7);

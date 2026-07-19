@@ -1019,7 +1019,13 @@ function computeRoute(){
   ensureGraph().then(ok=>{
     if(!ok) return;
     const two=Router.routeTwo(routeStart,routeEnd);
-    if(!two){ routeOptions=null; routeResult=null; toast('No route found between those points'); hideOptions(); refreshRouteSource(); updateRtButtons(); return; }
+    if(!two){
+      routeOptions=null; routeResult=null;
+      const sN=Router.nearestNode(routeStart), eN=Router.nearestNode(routeEnd);
+      const tooFar = !sN || !eN || sN.dist>Router.MAX_SNAP || eN.dist>Router.MAX_SNAP;
+      toast(tooFar ? 'No cycling path near there — tap closer to a route' : 'No route found between those points');
+      hideOptions(); refreshRouteSource(); updateRtButtons(); return;
+    }
     routeOptions=two; renderOptions(two); selectRouteOption('max', true); setDock(false); ping('route-planned');
     if(routeResult && routeResult.hasCarWay) toast('Heads up: this route uses roads — wear a helmet (required on Singapore roads).');
   });

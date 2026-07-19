@@ -21,6 +21,7 @@
   //                  0cyc 1path 2foot 3live 4res  5serv 6trk 7ter 8sec 9pri
   const PCN_BONUS=0.60;   // park-connector edges are strongly preferred
   const H_FACTOR=0.50;    // <= min cost factor (cycleway 0.85 * PCN_BONUS 0.60 = 0.51) => admissible A*
+  const MAX_SNAP=250;     // metres: a tap beyond this from any node has no nearby routable path
 
   let NODES=[], ADJ=[], loaded=false;
 
@@ -75,6 +76,7 @@
     const ncm=(opts&&opts.ncm)||1;   // extra penalty on non-cycling edges (footways/roads)
     const s=nearestNode(start), t=nearestNode(end);
     if(!s||!t) return null;
+    if(s.dist>MAX_SNAP || t.dist>MAX_SNAP) return null;   // tap has no nearby routable path (offshore/out-of-coverage)
     if(s.i===t.i) return {coords:[NODES[s.i].slice()], legs:[], meters:0, pcnMeters:0, cyclingMeters:0, roadMeters:0, footMeters:0, cyclingPct:0, hasCarWay:false, directions:[], snapStart:s, snapEnd:t, ok:true};
     const goal=NODES[t.i], N=NODES.length;
     const g=new Float64Array(N).fill(Infinity);
@@ -155,6 +157,6 @@
     return dirs;
   }
 
-  const Router={ load, route, routeTwo, nearestNode, get loaded(){return loaded;}, get size(){return NODES.length;} };
+  const Router={ load, route, routeTwo, nearestNode, MAX_SNAP, get loaded(){return loaded;}, get size(){return NODES.length;} };
   if(typeof module!=='undefined' && module.exports) module.exports=Router; else global.Router=Router;
 })(typeof self!=='undefined'?self:this);
