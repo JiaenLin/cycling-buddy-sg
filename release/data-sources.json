@@ -46,5 +46,19 @@
       "delta": "Production has 71 reviewed lines. The current relation rebuild has 82: 38 exact matches, 44 candidate-only and 33 production-only. This is an explicit source-data delta held for manual status, ordering and continuity review."
     }
   },
-  "adoptionRule": "Never copy a rebuild over production data automatically. Review the report, rendered geometry, metadata/count/length deltas, licences, fixed routing fixtures and release risk first."
+  "adoptionRule": "Never copy a rebuild over production data automatically. Review the report, rendered geometry, metadata/count/length deltas, licences, fixed routing fixtures and release risk first.",
+  "freshness": {
+    "policy": "Days since the source snapshot was captured. warnAfterDays is a soft reminder; failAfterDays blocks release until the source is re-checked against data.gov.sg / OSM. Per-source overrides may tighten either threshold.",
+    "defaults": { "warnAfterDays": 400, "failAfterDays": 600 },
+    "sources": {
+      "pcn": { "capturedOn": "2025-10-01" },
+      "cpn": { "capturedOn": "2025-07-01" },
+      "rail": { "capturedOn": "2026-07-17" }
+    }
+  },
+  "closures": {
+    "policy": "A closure with an ISO end date that has passed is a release-blocking staleness signal. A closure with an open-ended end date (for example ~2028) must be re-verified against the official source at least every reviewIntervalDays; bump lastReviewedOn when you re-confirm it.",
+    "lastReviewedOn": "2026-07-18",
+    "reviewIntervalDays": 120
+  }
 }
