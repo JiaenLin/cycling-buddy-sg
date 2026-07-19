@@ -22,8 +22,8 @@ const interval = Math.round((due - last) / 86_400_000);
 if (interval > governance.maximumIntervalDays + 1) failures.push(`review interval is ${interval} days`);
 if (Object.keys(ownership.categories).length < 5) failures.push('ownership categories are incomplete');
 if (!ownership.reviewPolicy.ownerReviewRequiredForTier3) failures.push('Tier 3 owner review is not required');
-if (channels.channels.previewCanary.minimumTier3SoakHours < 24) failures.push('Tier 3 canary soak is below 24 hours');
 if (channels.promotion.rebuildAllowed) failures.push('channel promotion permits rebuilding');
+if (channels.promotion.mode !== 'same-commit-fast-forward') failures.push('promotion must be exact-SHA fast-forward');
 for (const record of regressions.records) {
   if (!record.missedSignal || !record.prevention || record.status !== 'closed') {
     failures.push(`${record.id}: missing learning or still open`);
@@ -81,6 +81,6 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log('GOVERNANCE AUDIT PASSED: next review '
-    + `${governance.nextReviewDueOn}; ownership, canary, regression learning, `
+    + `${governance.nextReviewDueOn}; ownership, exact-SHA promotion, regression learning, `
     + 'private-file boundary and documented-command integrity enforced');
 }

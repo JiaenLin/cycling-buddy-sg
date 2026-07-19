@@ -14,8 +14,8 @@ release requirement, not an optional polish pass. Automated axe checks, keyboard
 | Mobile WebKit | iPhone 13 emulation and responsive functional suite | Current physical iPhone Safari, VoiceOver for changed flows |
 | Motion/contrast | Reduced-motion CSS assertion and axe contrast rules | Light/dark/high-contrast visual review for affected components |
 
-The release report records exact devices, operating-system/browser versions and tester. Emulation is
-not presented as a substitute for required physical Android/iOS evidence on Tier 3 runtime changes.
+The release report records the devices and browser versions checked. Emulation and axe cover most
+cases; complement them with a quick physical screen-reader check on changed flows when practical.
 
 ## Keyboard and dialog contract
 

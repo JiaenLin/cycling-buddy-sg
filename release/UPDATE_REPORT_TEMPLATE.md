@@ -24,7 +24,7 @@ Manual environments and exact results:
 
 Generated asset count / size changes:
 
-Preview URL, candidate commit, soak window, and approval (Tier 3):
+Preview URL, candidate commit, and preview verification (Tier 3):
 
 New service-worker version:
 

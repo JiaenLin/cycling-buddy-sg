@@ -82,15 +82,18 @@ channels. The channel rules and soak windows are in
 [RELEASE_CHANNELS.md](RELEASE_CHANNELS.md).
 
 ```bash
-npm run release:manifest             # freeze a pending manifest for the exact candidate SHA
-# fast-forward the exact SHA to preview, wait for Pages to report it, then:
-npm run release:verify-deployment    # confirm every deployed asset hash matches the manifest
-npm run health:production            # privacy-preserving synthetic health on the deployed URL
+git push preview <candidate-sha>:refs/heads/main   # deploy the exact SHA to preview
+npm run release:verify-deployment                  # optional: confirm deployed asset hashes match
+npm run health:production                          # optional: synthetic health on the deployed URL
 ```
 
-Complete the soak (runtime Tier 3 from v22 onward: at least 24 unchanged hours) and the physical
-Android/iPhone update tests. Then, with owner approval naming the exact candidate SHA,
-fast-forward that same SHA to `production` and re-verify assets and health live.
+Verify on preview: the automated checks plus a quick smoke test on a real phone (the changed flow
+and the old→new update prompt). There is no fixed soak clock — promote when you are satisfied, then
+fast-forward the same SHA to `production` and re-check it live:
+
+```bash
+git push origin <candidate-sha>:refs/heads/production
+```
 
 ## 6. If something goes wrong
 

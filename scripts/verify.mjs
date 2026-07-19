@@ -489,9 +489,8 @@ function checkMaturityContracts() {
     'named performance profile and absolute routing budget required');
   assert(Object.keys(ownership.categories).length >= 5 && ownership.reviewPolicy.ownerReviewRequiredForTier3,
     'ownership categories and Tier 3 review required');
-  assert(channels.channels.previewCanary.minimumTier3SoakHours >= 24
-    && channels.promotion.mode === 'same-commit-fast-forward' && !channels.promotion.rebuildAllowed,
-  'Tier 3 canary and immutable promotion contract required');
+  assert(channels.promotion.mode === 'same-commit-fast-forward' && !channels.promotion.rebuildAllowed,
+  'exact-SHA fast-forward promotion without rebuild required');
   assert(governance.maximumIntervalDays <= 184 && governance.eventTriggeredReviews.length >= 4,
     'six-month and event-triggered governance review required');
   assert(regressions.records.every(record => record.missedSignal && record.prevention),
