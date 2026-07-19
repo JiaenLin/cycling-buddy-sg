@@ -159,6 +159,17 @@ test('records location updates and generates a local GPX file', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('renders a shareable route image (PNG)', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await expect(page.locator('#rtImgBtn')).toBeVisible();
+  const head = await page.evaluate(() => drawRideCard(routeResult.coords, { subtitle: 't', big: '21 km', line: 'test' }).toDataURL('image/png').slice(0, 22));
+  expect(head).toContain('data:image/png');
+  expect(errors).toEqual([]);
+});
+
 test('an in-progress ride survives a reload (crash recovery)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.evaluate(() => {

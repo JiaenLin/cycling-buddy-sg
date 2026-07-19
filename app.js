@@ -1109,6 +1109,7 @@ function updateRtButtons(){
   $('rtClrBtn').hidden = !(routeStart||routeEnd);
   $('rtRevBtn').hidden = !(routeStart&&routeEnd);
   $('rtGpxBtn').hidden = !routeResult;
+  $('rtImgBtn').hidden = !routeResult;
 }
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
@@ -1177,6 +1178,53 @@ function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); cle
 
 // ---------- analytics (GoatCounter events; no-ops offline or if blocked) ----------
 function ping(name){ try{ if(window.goatcounter && goatcounter.count) goatcounter.count({path:name, title:name, event:true}); }catch(e){} }
+// Shareable branded card: the route/ride shape + stats on a self-contained PNG (no basemap tiles,
+// so no attribution concern in the shared image). GPX stays for power users; this is for social.
+function drawRideCard(coords, meta){
+  const S=1080, pad=96, cv=document.createElement('canvas'); cv.width=cv.height=S; const g=cv.getContext('2d');
+  const dark=document.documentElement.getAttribute('data-theme')==='dark' || (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+  const bg=dark?'#0e1613':'#f4f7f5', ink=dark?'#eaf2ef':'#0e1613', dim=dark?'#9fb3ab':'#5b6b64', accent=getVar('--accent')||'#12b886';
+  g.fillStyle=bg; g.fillRect(0,0,S,S); g.fillStyle=accent; g.fillRect(0,0,S,12);
+  g.textAlign='left'; g.fillStyle=ink; g.font='700 48px system-ui,-apple-system,sans-serif'; g.fillText('Cycling Buddy SG', pad, 108);
+  g.fillStyle=dim; g.font='500 28px system-ui,sans-serif'; g.fillText(meta.subtitle||'Singapore', pad, 150);
+  const boxY=196, boxH=548, boxW=S-2*pad;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const c of coords){ if(c[0]<minX)minX=c[0]; if(c[0]>maxX)maxX=c[0]; if(c[1]<minY)minY=c[1]; if(c[1]>maxY)maxY=c[1]; }
+  const kx=Math.cos((minY+maxY)/2*Math.PI/180);
+  const wX=Math.max(1e-6,(maxX-minX)*kx), wY=Math.max(1e-6,maxY-minY), scale=Math.min(boxW/wX, boxH/wY)*0.88;
+  const offX=pad+(boxW-wX*scale)/2, offY=boxY+(boxH-wY*scale)/2;
+  const X=c=>offX+(c[0]-minX)*kx*scale, Y=c=>offY+(maxY-c[1])*scale;
+  g.strokeStyle=accent; g.lineWidth=11; g.lineJoin='round'; g.lineCap='round';
+  g.beginPath(); coords.forEach((c,i)=> i?g.lineTo(X(c),Y(c)):g.moveTo(X(c),Y(c))); g.stroke();
+  const dot=(c,col)=>{ g.beginPath(); g.arc(X(c),Y(c),13,0,7); g.fillStyle=col; g.fill(); g.lineWidth=4; g.strokeStyle=bg; g.stroke(); };
+  dot(coords[0],'#22B573'); dot(coords[coords.length-1], getVar('--rec')||'#e02749');
+  g.fillStyle=ink; g.font='800 96px system-ui,sans-serif'; g.fillText(meta.big, pad, 872);
+  g.fillStyle=dim; g.font='500 32px system-ui,sans-serif'; g.fillText(meta.line, pad, 924);
+  g.fillStyle=dim; g.font='500 26px system-ui,sans-serif'; g.fillText('jiaenlin.github.io/cycling-buddy-sg', pad, S-64);
+  return cv;
+}
+function shareImage(coords, meta, filename){
+  if(!coords || coords.length<2){ toast('Nothing to share yet'); return; }
+  ping('share-image');
+  drawRideCard(coords, meta).toBlob(async blob=>{
+    if(!blob){ toast('Could not make the image'); return; }
+    const file=new File([blob], filename, {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'Cycling Buddy SG', text:meta.share||'Cycling Buddy SG'}); return; }catch(e){ if(e && e.name==='AbortError') return; }
+    }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    toast('Image saved');
+  }, 'image/png');
+}
+$('imgBtn').addEventListener('click', ()=> shareImage(track, {
+  subtitle:'Ride · '+new Date().toLocaleDateString(), big:(recDist/1000).toFixed(2)+' km',
+  line:$('sumTime').textContent+' · '+$('sumAvg').textContent+' km/h avg', share:'My ride on Cycling Buddy SG 🚴'
+}, 'cycling-buddy-ride.png'));
+$('rtImgBtn').addEventListener('click', ()=> routeResult && shareImage(routeResult.coords, {
+  subtitle:'Planned route · Singapore', big:(routeResult.meters/1000).toFixed(1)+' km',
+  line:Math.round(100*routeResult.cyclingPct)+'% cycling · '+Math.round(100*routeResult.pcnMeters/Math.max(1,routeResult.meters))+'% park connector',
+  share:'My planned ride on Cycling Buddy SG 🚴'
+}, 'cycling-buddy-route.png'));
 
 // ---------- share ----------
 const SHARE_URL = 'https://jiaenlin.github.io/cycling-buddy-sg/';
