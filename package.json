@@ -7,7 +7,7 @@
     "risk:classify": "node scripts/classify-risk.mjs --working-tree",
     "verify": "node scripts/verify.mjs",
     "verify:unit": "node --test tests/node/*.test.mjs",
-    "verify:data": "node scripts/data-reproducibility.mjs",
+    "verify:data": "node scripts/data-reproducibility.mjs && node scripts/data-freshness.mjs",
     "verify:security": "node scripts/security-audit.mjs",
     "verify:governance": "node scripts/governance-audit.mjs",
     "verify:performance": "node scripts/performance-budget.mjs",
