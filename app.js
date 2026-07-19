@@ -34,7 +34,7 @@ let routeOptions=null, routeSel='max';
 let recording=false, track=[], recDist=0, recStart=0, recTimer=null, lastPt=null;
 let pendingUpdateWorker=null, renderPendingUpdate=null;
 // compass / heading-follow ("face direction") mode
-let headingMode=false, deviceHeading=null, deviceHeadingTs=0, camRAF=null;
+let headingMode=false, deviceHeading=null, deviceHeadingTs=0, camRAF=null, navStage=0; // navStage: 0 off · 1 facing (zoom-in) · 2 overview (zoom-out + route arrows)
 const camTarget={center:null, bearing:null};
 // weather (NEA 2-hour forecast)
 let WX=null, wxLoading=null, wxVisible=false, ZONES=null;
@@ -220,6 +220,15 @@ function addLayers(){
     layout:{'line-join':'round','line-cap':'round'}, paint:{
       'line-color':['match',['get','kind'], 'road', ROUTE_ROAD, 'foot', ROUTE_FOOT, getVar('--accent')],
       'line-width':['interpolate',['linear'],['zoom'],11,3.5,16,7.5]}});
+  // direction arrowheads along the route, shown in navigation overview (nav stage 2)
+  if(!map.hasImage('nav-arrow')){
+    const s=20, cv=document.createElement('canvas'); cv.width=cv.height=s; const cx=cv.getContext('2d');
+    cx.fillStyle=dark?'#eaf2ef':'#04202e'; cx.beginPath(); cx.moveTo(s*0.30,s*0.16); cx.lineTo(s*0.84,s*0.5); cx.lineTo(s*0.30,s*0.84); cx.closePath(); cx.fill();
+    try{ map.addImage('nav-arrow', cx.getImageData(0,0,s,s), {pixelRatio:2}); }catch(_){}
+  }
+  if(!map.getLayer('route-arrows')) map.addLayer({id:'route-arrows',type:'symbol',source:'route',
+    layout:{'symbol-placement':'line','symbol-spacing':64,'icon-image':'nav-arrow','icon-size':0.85,
+      'icon-rotation-alignment':'map','icon-allow-overlap':true,'icon-ignore-placement':true,'visibility':'none'}});
 
   // Weather overlay (NEA 2-hour forecast) — rain ZONES: slate→violet fills over wet areas + weather icons; dry areas stay clean
   wxEnsureIcons();
@@ -922,6 +931,7 @@ function currentHeading(){
   return null;
 }
 function updateCompassIcon(){ const n=$('compassNeedle'); if(n) n.style.transform='rotate('+(-map.getBearing())+'deg)'; }
+function setNavArrows(show){ if(map.getLayer && map.getLayer('route-arrows')) map.setLayoutProperty('route-arrows','visibility',(show && routeResult)?'visible':'none'); }
 function camLoop(){
   if(!headingMode){ camRAF=null; return; }
   const c=map.getCenter(), curB=map.getBearing(), curZ=map.getZoom();
@@ -934,7 +944,7 @@ function camLoop(){
   camRAF=requestAnimationFrame(camLoop);
 }
 function enterHeading(){
-  headingMode=true;
+  headingMode=true; navStage=1;
   const btn=$('headingBtn'); btn.classList.add('active'); btn.setAttribute('aria-pressed','true');
   map.touchZoomRotate.disableRotation();               // two-finger = zoom only while following; avoids fighting the compass
   if(!locActive) geo.trigger();                          // ensure GPS + the user dot/heading beam
@@ -955,12 +965,14 @@ function exitHeading(reset){
   if(camRAF){ cancelAnimationFrame(camRAF); camRAF=null; }
   camTarget.center=camTarget.bearing=camTarget.zoom=null;
   if(reset!==false) map.easeTo({bearing:0, pitch:0, duration:500});
+  navStage=0; setNavArrows(false);
   updateCompassIcon();
 }
 $('headingBtn').addEventListener('click', ()=>{
-  if(headingMode){ exitHeading(true); return; }
-  if(Math.abs(normBearing(map.getBearing()))>2){ map.easeTo({bearing:0, pitch:0, duration:500}); return; } // straighten a hand-rotated map first
-  enterHeading();
+  if(navStage===1){ navStage=2; camTarget.zoom=14.2; setNavArrows(true); toast('Overview — arrows show the way ahead'); return; } // 2nd tap: zoom out + route arrows
+  if(navStage===2){ exitHeading(true); return; }                                                                // 3rd tap: off (resets navStage)
+  if(Math.abs(normBearing(map.getBearing()))>2){ map.easeTo({bearing:0, pitch:0, duration:500}); return; }      // straighten a hand-rotated map first
+  enterHeading();                                                                                               // 1st tap: face direction + zoom in
 });
 map.on('rotate', updateCompassIcon);
 map.on('dragstart',   e=>{ if(headingMode && e.originalEvent) exitHeading(false); }); // a manual pan drops out of follow

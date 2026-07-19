@@ -126,6 +126,20 @@ test('hides route controls until a route exists and reports no nearby path for f
   expect(errors).toEqual([]);
 });
 
+test('navigation overview reveals route direction arrows on demand', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await expect.poll(() => page.evaluate(() => Boolean(map.getLayer('route-arrows')))).toBe(true);
+  await expect.poll(() => page.evaluate(() => map.getLayoutProperty('route-arrows', 'visibility'))).toBe('none');
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await page.evaluate(() => setNavArrows(true));
+  await expect.poll(() => page.evaluate(() => map.getLayoutProperty('route-arrows', 'visibility'))).toBe('visible');
+  await page.evaluate(() => setNavArrows(false));
+  await expect.poll(() => page.evaluate(() => map.getLayoutProperty('route-arrows', 'visibility'))).toBe('none');
+  expect(errors).toEqual([]);
+});
+
 test('records location updates and generates a local GPX file', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => document.querySelectorAll('#lgBody .lrow').length >= 7);
