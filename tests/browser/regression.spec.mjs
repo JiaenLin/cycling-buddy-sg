@@ -159,6 +159,25 @@ test('records location updates and generates a local GPX file', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('an in-progress ride survives a reload (crash recovery)', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.evaluate(() => {
+    setLocActive(true); startRec();
+    onPos({ coords: { latitude: 1.3000, longitude: 103.8000, accuracy: 5, speed: 4 }, timestamp: 1_000 });
+    onPos({ coords: { latitude: 1.3005, longitude: 103.8005, accuracy: 5, speed: 4 }, timestamp: 2_000 });
+  });
+  // the live track was persisted...
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('rec') || 'null')?.track.length)).toBeGreaterThanOrEqual(2);
+  // ...so after losing in-memory state (a reload), resumeRec restores the ride instead of dropping it.
+  await page.evaluate(() => { clearInterval(recTimer); recording = false; track = []; recDist = 0; resumeRec(); });
+  await expect(page.locator('#viewRec')).toBeVisible();
+  expect(await page.evaluate(() => recording)).toBe(true);
+  expect(await page.evaluate(() => track.length)).toBeGreaterThanOrEqual(2);
+  await page.evaluate(() => stopRec());
+  expect(await page.evaluate(() => localStorage.getItem('rec'))).toBeNull();
+  expect(errors).toEqual([]);
+});
+
 test('offers a waiting update only to an existing installation and never activates it automatically', async ({ page, browser }) => {
   const errors = await openArtifact(page, { serviceWorkerMode: 'waiting-update' });
   const pill = page.locator('#updatePill');

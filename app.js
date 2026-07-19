@@ -31,7 +31,7 @@ let user=null, nearest=null, locActive=false;
 let routeMode=false, graphReady=false, graphLoading=null;
 let routeStart=null, routeEnd=null, routeResult=null, mkStart=null, mkEnd=null;
 let routeOptions=null, routeSel='max';
-let recording=false, track=[], recDist=0, recStart=0, recTimer=null, lastPt=null;
+let recording=false, track=[], recDist=0, recStart=0, recStartEpoch=0, recTimer=null, lastPt=null;
 let pendingUpdateWorker=null, renderPendingUpdate=null;
 // compass / heading-follow ("face direction") mode
 let headingMode=false, deviceHeading=null, deviceHeadingTs=0, camRAF=null, navStage=0; // navStage: 0 off · 1 facing (zoom-in) · 2 overview (zoom-out + route arrows)
@@ -67,7 +67,7 @@ geo.on('trackuserlocationstart', () => setLocActive(true));
 geo.on('trackuserlocationend', () => setLocActive(false));
 
 map.on('style.load', addLayers);          // fires on first load and after every setStyle
-map.on('load', () => { mapLoaded=true; tryFit(); });
+map.on('load', () => { mapLoaded=true; tryFit(); resumeRec(); });
 
 // tap-to-identify — prefer a park connector, fall back to a cycling path (handlers re-apply after a theme switch)
 function onMapClick(e){
@@ -609,7 +609,7 @@ function pushTrack(u, ts){
   const t = ts || Date.now();
   if(lastPt){ const d=haversine(lastPt.lat,lastPt.lng,u.lat,u.lng); if(d>1.5 && d<80) recDist+=d; }
   track.push([u.lng,u.lat]); lastPt={lat:u.lat,lng:u.lng};
-  refreshTrackSource(); updateRecUI();
+  refreshTrackSource(); updateRecUI(); persistRec();
 }
 function refreshTrackSource(){
   const src = map.getSource && map.getSource('track'); if(!src) return;
@@ -626,14 +626,14 @@ function updateRecUI(){
 }
 function startRec(){
   if(!locActive) geo.trigger();
-  recording=true; track=[]; recDist=0; lastPt=null; recStart=performance.now();
+  recording=true; track=[]; recDist=0; lastPt=null; recStart=performance.now(); recStartEpoch=Date.now();
   const update=$('updatePill'); if(update && !update.hidden){ update.classList.remove('show'); update.hidden=true; }
   $('recBtn').classList.add('active'); $('recBtn').setAttribute('aria-label','Stop recording');
   show('viewRec'); setDock(false);
   recTimer=setInterval(()=>{ track.length ? updateRecUI() : ($('recTime').textContent=fmtTime((performance.now()-recStart)/1000)); }, 1000);
 }
 function stopRec(){
-  recording=false; clearInterval(recTimer);
+  recording=false; clearInterval(recTimer); try{ localStorage.removeItem('rec'); }catch(e){}
   $('recBtn').classList.remove('active'); $('recBtn').setAttribute('aria-label','Record a ride');
   const el=(performance.now()-recStart)/1000;
   $('sumDist').textContent=(recDist/1000).toFixed(2);
@@ -645,6 +645,20 @@ function stopRec(){
 function buildGPX(){
   const pts=track.map(p=>`<trkpt lat="${p[1].toFixed(6)}" lon="${p[0].toFixed(6)}"></trkpt>`).join('');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Cycling Buddy SG" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>PCN ride ${new Date().toISOString().slice(0,10)}</name><trkseg>${pts}</trkseg></trk></gpx>`;
+}
+// Crash-safe recording: persist the live track so a reload / mobile tab-eviction never loses a ride.
+function persistRec(){ if(!recording) return; try{ localStorage.setItem('rec', JSON.stringify({v:1, track, recDist, recStartEpoch})); }catch(e){} }
+function resumeRec(){
+  let s; try{ s=JSON.parse(localStorage.getItem('rec')||'null'); }catch(e){ s=null; }
+  if(!s || !Array.isArray(s.track) || s.track.length<2 || (Date.now()-(s.recStartEpoch||0))>864e5){ try{ localStorage.removeItem('rec'); }catch(e){} return; }
+  recording=true; track=s.track; recDist=s.recDist||0; recStartEpoch=s.recStartEpoch||Date.now();
+  recStart=performance.now()-Math.max(0, Date.now()-recStartEpoch);   // keep elapsed continuous across the reload
+  const last=track[track.length-1]; lastPt={lng:last[0], lat:last[1]};
+  $('recBtn').classList.add('active'); $('recBtn').setAttribute('aria-label','Stop recording');
+  show('viewRec'); setDock(false); refreshTrackSource(); updateRecUI();
+  recTimer=setInterval(()=>{ track.length ? updateRecUI() : ($('recTime').textContent=fmtTime((performance.now()-recStart)/1000)); persistRec(); }, 1000);
+  if(!locActive) geo.trigger();
+  toast('Recovered your ride after a reload');
 }
 
 // ---------- legend ----------
