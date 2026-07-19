@@ -14,6 +14,6 @@
     "independentApprovalWhenMaintainerCountAtLeast": 2,
     "minimumIndependentApprovalsThen": 1,
     "noSelfMergeForTier3Then": true,
-    "rule": "Until a second maintainer exists, the sole owner records explicit approval and all required automated/device/soak evidence. Once two maintainers exist, Tier 3 also requires one independent relevant-owner approval and no self-merge."
+    "rule": "Until a second maintainer exists, the sole owner verifies each release on preview before promotion. Once two maintainers exist, Tier 3 also requires one independent relevant-owner approval and no self-merge."
   }
 }
