@@ -98,8 +98,9 @@
       <button class="iconbtn" id="shareBtn" aria-label="Share this app" title="Share">
         <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.6"/><circle cx="17.5" cy="5.5" r="2.6"/><circle cx="17.5" cy="18.5" r="2.6"/><path d="M8.4 10.8l6.8-4M8.4 13.2l6.8 4"/></svg>
       </button>
-      <button class="iconbtn" id="wxBtn" aria-label="Rain zones" aria-pressed="false" title="Rain zones — next 2 hours">
-        <svg viewBox="0 0 24 24"><path d="M7 16.5a4.5 4.5 0 0 1-.4-8.98 6 6 0 0 1 11.5 1.48A3.5 3.5 0 0 1 17.5 16"/><path d="M8 19l-1.2 2.2M12.2 19l-1.2 2.2M16.4 19l-1.2 2.2"/></svg>
+      <button class="iconbtn" id="wxBtn" aria-labelledby="wxBtnLabel" aria-pressed="false" title="Rain zones — next 2 hours">
+        <span class="sr-only" id="wxBtnLabel">Rain zones</span>
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M7 16.5a4.5 4.5 0 0 1-.4-8.98 6 6 0 0 1 11.5 1.48A3.5 3.5 0 0 1 17.5 16"/><path d="M8 19l-1.2 2.2M12.2 19l-1.2 2.2M16.4 19l-1.2 2.2"/></svg>
       </button>
       <button class="iconbtn" id="installBtn" hidden aria-label="Install app" title="Install">
         <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
@@ -132,8 +133,9 @@
     <button class="fab" id="locBtn" aria-label="Find my location" title="Locate me">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
-    <button class="fab compass" id="headingBtn" aria-label="Face direction — rotate map to the way you're heading" aria-pressed="false" title="Compass · face your heading">
-      <span class="needle" id="compassNeedle"><svg viewBox="0 0 24 24" fill="none" stroke="none"><path d="M12 3.2 15.6 13 12 11.1 8.4 13Z" fill="var(--accent)"/><path d="M12 20.8 8.4 13 12 14.9 15.6 13Z" fill="#9AA6B2"/></svg></span>
+    <button class="fab compass" id="headingBtn" aria-labelledby="headingBtnLabel" aria-pressed="false" title="Compass · face your heading">
+      <span class="sr-only" id="headingBtnLabel">Face direction — rotate map to the way you're heading</span>
+      <span class="needle" id="compassNeedle" aria-hidden="true"><svg focusable="false" viewBox="0 0 24 24" fill="none" stroke="none"><path d="M12 3.2 15.6 13 12 11.1 8.4 13Z" fill="var(--accent)"/><path d="M12 20.8 8.4 13 12 14.9 15.6 13Z" fill="#9AA6B2"/></svg></span>
     </button>
     <button class="fab rec" id="recBtn" aria-label="Record a ride" title="Record ride"><span class="dot"></span></button>
   </div>

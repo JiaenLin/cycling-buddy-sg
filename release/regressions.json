@@ -23,6 +23,17 @@
       "missedSignal": "The controller-change counter did not distinguish initial control from a later controller replacement.",
       "prevention": "scripts/health-evaluator.mjs now excludes at most one initial acquisition, while tests/node/health-evaluator.test.mjs proves subsequent controller changes still count as update loops.",
       "status": "closed"
+    },
+    {
+      "id": "NM-2026-07-19-android-talkback-toggle-names",
+      "kind": "near-miss",
+      "detectedAt": "2026-07-19",
+      "summary": "Physical Android TalkBack testing did not announce names for the rain-zone and face-direction pressed-state icon buttons.",
+      "escapedToProduction": false,
+      "detectedBy": "owner physical HONOR Magic6 Pro accessibility test on preview",
+      "missedSignal": "Automated WCAG analysis accepted aria-label names but did not enforce a physical-reader fallback or decorative-icon isolation for pressed-state icon controls.",
+      "prevention": "Both controls now reference clipped native text with aria-labelledby and hide decorative icons; tests/accessibility/accessibility.spec.mjs locks the physical-reader markup and accessible names.",
+      "status": "closed"
     }
   ]
 }

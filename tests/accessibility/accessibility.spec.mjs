@@ -43,6 +43,24 @@ test('modal focus is contained, closed dialogs are inert, and focus returns to t
   await expect(opener).toBeFocused();
 });
 
+test('physical screen-reader toggle labels use referenced native text and decorative icons', async ({ page }) => {
+  await openArtifact(page);
+  const controls = [
+    { id: 'wxBtn', labelId: 'wxBtnLabel', name: 'Rain zones', icon: 'svg' },
+    {
+      id: 'headingBtn', labelId: 'headingBtnLabel',
+      name: "Face direction — rotate map to the way you're heading", icon: '.needle'
+    }
+  ];
+  for (const { id, labelId, name, icon } of controls) {
+    const control = page.locator(`#${id}`);
+    await expect(control).toHaveAttribute('aria-labelledby', labelId);
+    await expect(control).toHaveAccessibleName(name);
+    await expect(page.locator(`#${labelId}`)).toHaveClass(/sr-only/);
+    await expect(control.locator(icon).first()).toHaveAttribute('aria-hidden', 'true');
+  }
+});
+
 test('visible first-party controls meet WCAG 2.2 minimum target size', async ({ page }) => {
   await openArtifact(page);
   const controls = page.locator('#app button:visible, #app [role="button"]:visible');
