@@ -7,3 +7,9 @@ node_modules/
 playwright-report/
 test-results/
 .artifacts/
+
+# --- Private operating docs (UPDATE_RULES §1) — must never enter the public repo ---
+UPDATE_RULES.md
+LAUNCH_CHECKLIST.md
+*.private.md
+/notes/
