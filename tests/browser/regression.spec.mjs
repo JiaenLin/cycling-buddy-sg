@@ -79,6 +79,41 @@ test('plans a fixed route, exposes the road warning, and reports missing routing
   await context.close();
 });
 
+test('keeps a planned route through stray taps, drag-edits endpoints, and only clears on demand', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => {
+    handleRouteClick([103.7859, 1.4370]);
+    handleRouteClick([103.9040, 1.4043]);
+  });
+  await expect(page.locator('#rtOptions')).toBeVisible();
+  const planned = await page.evaluate(() => routeResult && routeResult.meters);
+  expect(planned).toBeGreaterThan(0);
+
+  // 1. A stray tap on the map must not wipe the planned route.
+  await page.evaluate(() => onMapClick({ lngLat: { lng: 103.8500, lat: 1.4200 }, point: map.project([103.8500, 1.4200]) }));
+  await expect(page.locator('#rtOptions')).toBeVisible();
+  expect(await page.evaluate(() => routeResult && routeResult.meters)).toBe(planned);
+
+  // 2. Dragging the destination marker recomputes in place; the route never disappears.
+  await page.evaluate(() => { mkEnd.setLngLat([103.8730, 1.4180]); mkEnd.fire('dragend'); });
+  await expect.poll(() => page.evaluate(() => routeEnd && Math.abs(routeEnd[0] - 103.8730) < 1e-6)).toBe(true);
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult) && routeResult.meters > 0)).toBe(true);
+  await expect(page.locator('#rtOptions')).toBeVisible();
+
+  // 3. Closing the planner keeps the route drawn on the map.
+  await page.getByRole('button', { name: 'Exit route planning' }).click();
+  expect(await page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await expect.poll(() => page.evaluate(() => map.querySourceFeatures('route').length)).toBeGreaterThan(0);
+
+  // 4. Clear is the only reset.
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Clear' }).click();
+  expect(await page.evaluate(() => routeResult)).toBeNull();
+  await expect.poll(() => page.evaluate(() => map.querySourceFeatures('route').length)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 test('records location updates and generates a local GPX file', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => document.querySelectorAll('#lgBody .lrow').length >= 7);

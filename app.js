@@ -70,8 +70,10 @@ map.on('style.load', addLayers);          // fires on first load and after every
 map.on('load', () => { mapLoaded=true; tryFit(); });
 
 // tap-to-identify — prefer a park connector, fall back to a cycling path (handlers re-apply after a theme switch)
-map.on('click', e => {
-  if(routeMode){ handleRouteClick([e.lngLat.lng, e.lngLat.lat]); return; }
+function onMapClick(e){
+  // While planning, a tap sets a point only while one is still needed; once both ends
+  // exist the tap falls through to feature inspection, so a stray tap never wipes the route.
+  if(routeMode && (!routeStart || !routeEnd)){ handleRouteClick([e.lngLat.lng, e.lngLat.lat]); return; }
   // a closure alert outranks everything — it's the most important thing to surface if tapped
   const closeLayers=['closed-marker','risk-glow'].filter(id=>map.getLayer(id));
   const closeHit = closeLayers.length ? map.queryRenderedFeatures(e.point,{layers:closeLayers})[0] : null;
@@ -102,7 +104,8 @@ map.on('click', e => {
     html=`<b><i class="sw" style="background:${getVar('--cpn')}"></i>Cycling path</b>${f.properties.area?`<span class="pk">${esc(f.properties.area)}</span>`:''}`;
   }
   new maplibregl.Popup({className:'pcn-popup', closeButton:true, maxWidth:'240px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
-});
+}
+map.on('click', onMapClick);
 function showClosurePopup(e){
   const c = (CLOSURES_META && CLOSURES_META.active && CLOSURES_META.active[0]) || {};
   const title = c.title || 'Cycling diversion';
@@ -977,28 +980,39 @@ function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
   routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); resetRoutePanel(); setDock(false); ensureGraph(); loadWeather();
+  show('viewRoute'); setDock(false); ensureGraph(); loadWeather();
+  // Re-open onto an existing plan instead of discarding it.
+  if(routeOptions){ renderOptions(routeOptions); selectRouteOption(routeSel,false); }
+  else resetRoutePanel();
 }
 function exitRoute(){
   routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor='';
-  clearRoutePoints(); routeResult=null; refreshRouteSource(); show('viewNearest');
+  // Closing the planner keeps the planned route and its markers on the map; only Clear removes them.
+  show('viewNearest');
 }
 function rtHint(t){ const el=$('rtHint'); el.textContent=t; el.hidden=false; }
 function hideOptions(){ $('rtOptions').hidden=true; $('rtDirs').hidden=true; $('rtNotice').hidden=true; $('rtKey').hidden=true; $('rtWx').hidden=true; }
 function resetRoutePanel(){ hideOptions(); routeOptions=null; rtHint('Tap the map to set your start — or use your location.'); updateRtButtons(); }
 function setPoint(which,ll){
   const color = which==='start' ? '#22B573' : (getVar('--rec')||'#e02749');
-  const m=new maplibregl.Marker({color}).setLngLat(ll).addTo(map);
+  const m=new maplibregl.Marker({color, draggable:true}).setLngLat(ll).addTo(map);
   m.getElement().setAttribute('role','img');
-  m.getElement().setAttribute('aria-label', which==='start' ? 'Route start marker' : 'Route destination marker');
+  m.getElement().setAttribute('aria-label', which==='start' ? 'Route start marker — drag to move' : 'Route destination marker — drag to move');
+  m.on('dragend', ()=>{ const p=m.getLngLat(); onEndpointDragged(which,[p.lng,p.lat]); });
   if(which==='start'){ if(mkStart)mkStart.remove(); mkStart=m; routeStart=ll; }
   else { if(mkEnd)mkEnd.remove(); mkEnd=m; routeEnd=ll; }
+}
+function onEndpointDragged(which,ll){
+  if(which==='start') routeStart=ll; else routeEnd=ll;
+  updateRtButtons();
+  if(routeStart && routeEnd) computeRoute();   // both ends set → recompute in place, route never disappears
 }
 function clearRoutePoints(){ if(mkStart){mkStart.remove();mkStart=null;} if(mkEnd){mkEnd.remove();mkEnd=null;} routeStart=null; routeEnd=null; }
 function handleRouteClick(ll){
   if(!routeStart){ setPoint('start',ll); rtHint('Now tap your destination.'); updateRtButtons(); }
   else if(!routeEnd){ setPoint('end',ll); computeRoute(); }
-  else { clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); hideOptions(); setPoint('start',ll); rtHint('Now tap your destination.'); updateRtButtons(); }
+  // Both ends set: the map click handler no longer routes here, so there is no destructive
+  // "start over" tap. Drag a marker to adjust, or use Clear to plan a new route.
 }
 function computeRoute(){
   if(!routeStart||!routeEnd) return;
