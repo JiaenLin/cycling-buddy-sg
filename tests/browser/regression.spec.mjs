@@ -159,6 +159,19 @@ test('records location updates and generates a local GPX file', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('offline POI search sets a route destination by name', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  const q = await page.evaluate(() => POI[0].name.slice(0, 4).toLowerCase());
+  await page.fill('#rtSearch', q);
+  await expect(page.locator('#rtResults .rt-result').first()).toBeVisible();
+  await page.evaluate(() => handleRouteClick([103.8000, 1.3000]));  // set start by tap
+  await page.locator('#rtResults .rt-result').first().click();       // pick a park as destination
+  await expect.poll(() => page.evaluate(() => Boolean(routeEnd))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('renders a shareable route image (PNG)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();

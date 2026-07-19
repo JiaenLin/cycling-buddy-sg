@@ -23,7 +23,7 @@ const isDark = () => document.documentElement.getAttribute('data-theme') === 'da
 
 // ---------- state ----------
 let META=null, CPN_META=null, RAIL_META=null, PCN_FEATURES=[], mapLoaded=false, fitted=false;
-let PARKS_META=null, RACKS_META=null, RACK_FEATURES=[], nearRack=null, CLOSURES_META=null;
+let PARKS_META=null, RACKS_META=null, RACK_FEATURES=[], nearRack=null, CLOSURES_META=null, POI=[];
 const hidden = new Set();
 let cpnVisible = true, railVisible = true, parksVisible = true, racksVisible = true, closuresVisible = true;
 let user=null, nearest=null, locActive=false;
@@ -341,6 +341,15 @@ fetch('data/cpn.meta.json').then(r=>r.json()).then(m=>{ CPN_META=m; appendCpnRow
 fetch('data/rail.meta.json').then(r=>r.json()).then(m=>{ RAIL_META=m; appendRailRow(); });
 fetch('data/wx.zones.geojson').then(r=>r.json()).then(z=>{ ZONES=z; refreshWxSource(); }).catch(()=>{});
 fetch('data/parks.meta.json').then(r=>r.json()).then(m=>{ PARKS_META=m; appendParksRow(); }).catch(()=>{});
+// Offline POI index for route search-by-name: named parks & reserves with a rough centroid.
+function polyCentroid(geom){
+  const rings = geom.type==='Polygon' ? geom.coordinates : geom.type==='MultiPolygon' ? geom.coordinates.flat() : [];
+  let sx=0, sy=0, n=0; for(const ring of rings) for(const c of ring){ sx+=c[0]; sy+=c[1]; n++; }
+  return n ? [sx/n, sy/n] : null;
+}
+fetch('data/parks.polys.geojson').then(r=>r.json()).then(g=>{
+  POI = g.features.map(f=>{ const c=f.properties&&f.properties.name ? polyCentroid(f.geometry) : null; return c ? {name:f.properties.name, lng:c[0], lat:c[1]} : null; }).filter(Boolean);
+}).catch(()=>{});
 fetch('data/racks.meta.json').then(r=>r.json()).then(m=>{ RACKS_META=m; appendRacksRow(); }).catch(()=>{});
 fetch('data/racks.points.geojson').then(r=>r.json()).then(g=>{ RACK_FEATURES=g.features; computeNearestRack(); updateRackUI(); }).catch(()=>{});
 fetch('data/closures.meta.json').then(r=>r.json()).then(m=>{ CLOSURES_META=m; appendClosuresRow(); }).catch(()=>{});
@@ -1111,6 +1120,20 @@ function updateRtButtons(){
   $('rtGpxBtn').hidden = !routeResult;
   $('rtImgBtn').hidden = !routeResult;
 }
+$('rtSearch').addEventListener('input', ()=>{
+  const q=$('rtSearch').value.trim().toLowerCase(), box=$('rtResults');
+  if(q.length<2){ box.hidden=true; box.innerHTML=''; return; }
+  const hits=POI.filter(p=>p.name.toLowerCase().includes(q)).slice(0,6);
+  box._hits=hits; box.innerHTML=hits.map((p,i)=>`<button class="rt-result" data-i="${i}">${esc(p.name)}</button>`).join('');
+  box.hidden=!hits.length;
+});
+$('rtResults').addEventListener('click', e=>{
+  const b=e.target.closest('.rt-result'); if(!b) return;
+  const p=($('rtResults')._hits||[])[+b.dataset.i]; if(!p) return;
+  const ll=[p.lng,p.lat]; $('rtSearch').value=''; $('rtResults').hidden=true; $('rtResults').innerHTML='';
+  if(!routeStart){ setPoint('start',ll); rtHint('Now search or tap your destination.'); updateRtButtons(); }
+  else { setPoint('end',ll); computeRoute(); }   // sets destination and routes
+});
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
 $('rtLocBtn').addEventListener('click', ()=>{
