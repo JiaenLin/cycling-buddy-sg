@@ -245,7 +245,7 @@ body{
 .rt-node-b{background:var(--rec);box-shadow:0 0 0 3px color-mix(in srgb,var(--rec) 22%,transparent)}
 .rt-link{position:absolute;left:18px;top:30px;width:2px;height:52px;background:var(--line-strong);border-radius:1px}
 .rt-field{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
-.rt-cap{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+.rt-cap{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);font-weight:700}
 .rt-val{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rt-endic{width:18px;height:18px;flex:0 0 auto;stroke:var(--ink-dim);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .rt-to:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)}
@@ -257,6 +257,7 @@ body{
 .rt-results[hidden]{display:none}
 .rt-result{appearance:none;-webkit-appearance:none;text-align:left;cursor:pointer;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-size:13px;font-family:var(--ui)}
 .rt-result:hover{border-color:var(--accent)}
+.rt-noresult{padding:9px 11px;font-size:12.5px;color:var(--ink-dim);line-height:1.35}
 .nav-banner{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 12px);z-index:20;background:var(--accent);color:var(--accent-ink);padding:9px 18px;border-radius:14px;box-shadow:var(--shadow);text-align:center;max-width:calc(100% - 28px);pointer-events:none}
 .nav-banner[hidden]{display:none}
 .nav-banner .nav-main{font-weight:800;font-size:16px;line-height:1.15}

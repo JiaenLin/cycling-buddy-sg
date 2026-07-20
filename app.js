@@ -350,6 +350,20 @@ function polyCentroid(geom){
 fetch('data/parks.polys.geojson').then(r=>r.json()).then(g=>{
   POI = g.features.map(f=>{ const c=f.properties&&f.properties.name ? polyCentroid(f.geometry) : null; return c ? {name:f.properties.name, lng:c[0], lat:c[1]} : null; }).filter(Boolean);
 }).catch(()=>{});
+// Offline SG postcode index (OSM addr:postcode, ODbL) — lazy: fetched + runtime-cached on first
+// route-planner open, decoded from the 7-byte packed format built by build/download_postcodes.py.
+let POSTCODES=null, pcLoading=null;
+function loadPostcodes(){
+  if(pcLoading) return pcLoading;
+  pcLoading=fetch('data/postcodes.bin').then(r=>r.arrayBuffer()).then(buf=>{
+    const b=new Uint8Array(buf), m=new Map(), S=1.15, N=1.47, W=103.58, E=104.10;
+    for(let i=0;i+7<=b.length;i+=7)
+      m.set(String((b[i]<<16)|(b[i+1]<<8)|b[i+2]).padStart(6,'0'),
+        [W+((b[i+5]<<8)|b[i+6])/65535*(E-W), S+((b[i+3]<<8)|b[i+4])/65535*(N-S)]);
+    POSTCODES=m;
+  }).catch(()=>{ POSTCODES=new Map(); });
+  return pcLoading;
+}
 fetch('data/racks.meta.json').then(r=>r.json()).then(m=>{ RACKS_META=m; appendRacksRow(); }).catch(()=>{});
 fetch('data/racks.points.geojson').then(r=>r.json()).then(g=>{ RACK_FEATURES=g.features; computeNearestRack(); updateRackUI(); }).catch(()=>{});
 fetch('data/closures.meta.json').then(r=>r.json()).then(m=>{ CLOSURES_META=m; appendClosuresRow(); }).catch(()=>{});
@@ -1034,7 +1048,7 @@ function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
   routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); setDock(false); ensureGraph(); loadWeather();
+  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather();
   // Re-open onto an existing plan instead of discarding it.
   if(routeOptions){ renderOptions(routeOptions); selectRouteOption(routeSel,false); }
   else resetRoutePanel();
@@ -1193,11 +1207,22 @@ function startNav(){ if(!routeResult) return; navActive=true; offRouteCount=0; i
 function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.textContent='Go'; const el=$('navBanner'); if(el) el.hidden=true; }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 $('rtSearch').addEventListener('input', ()=>{
-  const q=$('rtSearch').value.trim().toLowerCase(), box=$('rtResults');
+  const raw=$('rtSearch').value.trim(), box=$('rtResults'), pc=raw.replace(/\s+/g,'');
+  if(/^\d{6}$/.test(pc)){                       // a Singapore postcode
+    const c=POSTCODES&&POSTCODES.get(pc);
+    if(c){ box._hits=[{name:'Postcode '+pc, lng:c[0], lat:c[1]}]; box.innerHTML=`<button class="rt-result" data-i="0">Postcode ${pc}</button>`; }
+    else { box._hits=[]; box.innerHTML=`<div class="rt-noresult">${POSTCODES?('No location for postcode '+pc+' — try a park name or tap the map'):'Loading postcodes…'}</div>`; }
+    box.hidden=false;
+    if(!POSTCODES) loadPostcodes().then(()=>{ if($('rtSearch').value.trim().replace(/\s+/g,'')===pc) $('rtSearch').dispatchEvent(new Event('input')); });
+    return;
+  }
+  const q=raw.toLowerCase();
   if(q.length<2){ box.hidden=true; box.innerHTML=''; return; }
   const hits=POI.filter(p=>p.name.toLowerCase().includes(q)).slice(0,6);
-  box._hits=hits; box.innerHTML=hits.map((p,i)=>`<button class="rt-result" data-i="${i}">${esc(p.name)}</button>`).join('');
-  box.hidden=!hits.length;
+  box._hits=hits;
+  box.innerHTML = hits.length ? hits.map((p,i)=>`<button class="rt-result" data-i="${i}">${esc(p.name)}</button>`).join('')
+                              : `<div class="rt-noresult">No park matches “${esc(raw)}”</div>`;
+  box.hidden=false;
 });
 $('rtResults').addEventListener('click', e=>{
   const b=e.target.closest('.rt-result'); if(!b) return;
