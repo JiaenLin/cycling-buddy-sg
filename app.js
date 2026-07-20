@@ -26,7 +26,7 @@ let META=null, CPN_META=null, RAIL_META=null, PCN_FEATURES=[], mapLoaded=false, 
 let PARKS_META=null, RACKS_META=null, RACK_FEATURES=[], nearRack=null, CLOSURES_META=null, POI=[];
 const hidden = new Set();
 let cpnVisible = true, railVisible = true, parksVisible = true, racksVisible = true, closuresVisible = true;
-let user=null, nearest=null, locActive=false;
+let user=null, nearest=null, locActive=false, hasFix=false;
 // routing
 let routeMode=false, graphReady=false, graphLoading=null;
 let routeStart=null, routeEnd=null, routeResult=null, mkStart=null, mkEnd=null;
@@ -62,7 +62,7 @@ const geo = new maplibregl.GeolocateControl({
 });
 map.addControl(geo, 'top-right'); // its default button is hidden via CSS; we drive it from our FAB
 geo.on('geolocate', onPos);
-geo.on('error', e => { setLocActive(false); toast(e && e.code===1 ? 'Location permission denied' : 'Couldn’t get your location'); });
+geo.on('error', e => { hasFix=false; setLocActive(false); updateUserArrow(); toast(e && e.code===1 ? 'Location permission denied' : 'Couldn’t get your location'); });
 geo.on('trackuserlocationstart', () => setLocActive(true));
 geo.on('trackuserlocationend', () => setLocActive(false));
 
@@ -341,15 +341,19 @@ fetch('data/cpn.meta.json').then(r=>r.json()).then(m=>{ CPN_META=m; appendCpnRow
 fetch('data/rail.meta.json').then(r=>r.json()).then(m=>{ RAIL_META=m; appendRailRow(); });
 fetch('data/wx.zones.geojson').then(r=>r.json()).then(z=>{ ZONES=z; refreshWxSource(); }).catch(()=>{});
 fetch('data/parks.meta.json').then(r=>r.json()).then(m=>{ PARKS_META=m; appendParksRow(); }).catch(()=>{});
-// Offline POI index for route search-by-name: named parks & reserves with a rough centroid.
+// Offline place index for route search-by-name: named parks & reserves plus MRT/LRT stations,
+// each a {name, lng, lat, kind} record. Parks come from the polygon layer; stations from the
+// prebuilt data/mrt.json (build/build_mrt.py). Both resolve by name (rk:'poi') at pick time.
 function polyCentroid(geom){
   const rings = geom.type==='Polygon' ? geom.coordinates : geom.type==='MultiPolygon' ? geom.coordinates.flat() : [];
   let sx=0, sy=0, n=0; for(const ring of rings) for(const c of ring){ sx+=c[0]; sy+=c[1]; n++; }
   return n ? [sx/n, sy/n] : null;
 }
+function loadMrt(){ fetch('data/mrt.json').then(r=>r.json()).then(a=>{ for(const t of a) POI.push({name:t[0], lng:t[1], lat:t[2], kind:/ LRT$/.test(t[0])?'lrt':'mrt'}); }).catch(()=>{}); }
 fetch('data/parks.polys.geojson').then(r=>r.json()).then(g=>{
-  POI = g.features.map(f=>{ const c=f.properties&&f.properties.name ? polyCentroid(f.geometry) : null; return c ? {name:f.properties.name, lng:c[0], lat:c[1]} : null; }).filter(Boolean);
-}).catch(()=>{});
+  POI = g.features.map(f=>{ const c=f.properties&&f.properties.name ? polyCentroid(f.geometry) : null; return c ? {name:f.properties.name, lng:c[0], lat:c[1], kind:'park'} : null; }).filter(Boolean);
+  loadMrt();   // append stations after parks so the parks assignment above can't clobber them
+}).catch(loadMrt);
 // Offline SG postcode index (OSM addr:postcode, ODbL) — lazy: fetched + runtime-cached on first
 // route-planner open, decoded from the 7-byte packed format built by build/download_postcodes.py.
 let POSTCODES=null, pcLoading=null;
@@ -380,6 +384,7 @@ function onPos(e){
   const c=e.coords;
   const hd = (c.heading!=null && !isNaN(c.heading)) ? c.heading : null; // GPS course-over-ground
   user={lat:c.latitude, lng:c.longitude, acc:c.accuracy, speed:c.speed, heading:hd};
+  hasFix=true;   // a live position exists; the dot + heading arrow stay valid even when tracking drops to background
   updateUserArrow();
   computeNearest(); updateNearUI(); refreshNearestSource();
   computeNearestRack(); updateRackUI();
@@ -400,7 +405,10 @@ function ensureUserArrow(){
 }
 function updateUserArrow(){
   ensureUserArrow();
-  const h=(user && locActive)?currentHeading():null;
+  // Gate on hasFix, not locActive: entering "face direction" pans the map via camLoop, which knocks
+  // MapLibre's GeolocateControl from active-lock to background (firing trackuserlocationend). The blue
+  // dot and our heading arrow are still valid in background, so tie visibility to having a live fix.
+  const h=(user && hasFix)?currentHeading():null;
   if(h==null){ userArrowEl.style.display='none'; return; }
   userArrowEl.style.display=''; userArrow.setLngLat([user.lng,user.lat]).setRotation(h);
 }
@@ -1050,7 +1058,9 @@ function enterRoute(){
   routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
   show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); updateGpsStatus();
   if(routeOptions){ renderRoutes(routeOptions); selectRoute(routeSel,false); }
-  else { if(!routeStart && user){ setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); } resetRoutePanel(); }
+  else resetRoutePanel();   // start is an explicit choice now (⌖ current location / search / tap) — no silent auto-fill
+  updateFieldStates();
+  if(!routeStart){ const fs=$('rtFromSearch'); if(fs) fs.focus({preventScroll:true}); }
 }
 function exitRoute(){
   routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor=''; closeMenu();
@@ -1060,17 +1070,25 @@ function exitRoute(){
   show('viewNearest');
 }
 function rtHint(t){ const el=$('rtHint'); el.textContent=t||''; el.hidden=!t; setDockH(); }
-function setFromLabel(t){ const el=$('rtFromVal'); if(el) el.textContent=t; }
-function updateGpsStatus(){ const el=$('rtGps'); if(el) el.hidden=!(user && locActive); }
+function setFromLabel(t){ const el=$('rtFromSearch'); if(el) el.value=t||''; }
+function updateGpsStatus(){ const b=$('rtLocBtn'); if(b) b.classList.toggle('live', !!(user && hasFix)); }
+// From and To are harmonised: each accepts search + a map tap; From additionally offers ⌖ current
+// location. We guide start-then-destination — the unset field glows, and To dims until start is set.
+function updateFieldStates(){
+  const f=$('rtFromRow'), t=$('rtToRow');
+  if(f) f.classList.toggle('glow', !routeStart && !routeResult);
+  if(t){ t.classList.toggle('glow', !!routeStart && !routeEnd && !routeResult); t.classList.toggle('await', !routeStart && !routeEnd && !routeResult); }
+}
 function updateMapHint(){
   const h=$('rtMapHint'); if(!h) return;
   if(!routeMode || routeResult){ h.hidden=true; return; }
-  h.textContent = !routeStart ? '◎ Tap the map to set your start, or use Current location'
-                              : '◎ Search above, or tap the map to drop your destination';
+  h.textContent = !routeStart ? '① Start — tap ⌖ for your location, search, or tap the map'
+                              : '② Destination — search a place, or tap the map';
   h.hidden=false;
 }
 function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
-function resetRoutePanel(){ hideOptions(); routeOptions=null; routeEndName=null; renderChips(); updateMapHint(); rtHint(''); updateRtControls(); }
+function resetRoutePanel(){ hideOptions(); routeOptions=null; routeEndName=null; const ts=$('rtSearch'); if(ts) ts.value=''; if(!routeStart) setFromLabel(''); hideResults('rtFromResults'); hideResults('rtResults'); renderChips(); updateMapHint(); rtHint(''); updateFieldStates(); updateRtControls(); }
+function hideResults(id){ const b=$(id); if(b){ b.hidden=true; b.textContent=''; b._hits=null; } }
 function setPoint(which,ll){
   const color = which==='start' ? '#22B573' : (getVar('--rec')||'#e02749');
   const m=new maplibregl.Marker({color, draggable:true}).setLngLat(ll).addTo(map);
@@ -1082,13 +1100,13 @@ function setPoint(which,ll){
 }
 function onEndpointDragged(which,ll){
   if(which==='start'){ routeStart=ll; setFromLabel('Dropped pin'); } else { routeEnd=ll; routeEndName='Dropped pin'; routeEndRef=null; }
-  updateRtControls();
+  updateFieldStates(); updateRtControls();
   if(routeStart && routeEnd) computeRoute();   // both ends set → recompute in place
 }
 function clearRoutePoints(){ if(mkStart){mkStart.remove();mkStart=null;} if(mkEnd){mkEnd.remove();mkEnd=null;} routeStart=null; routeEnd=null; }
-function handleRouteClick(ll){
-  if(!routeStart){ setPoint('start',ll); setFromLabel('Dropped pin'); updateMapHint(); updateRtControls(); }
-  else if(!routeEnd){ routeEndName='Dropped pin'; routeEndRef=null; setPoint('end',ll); computeRoute(); }
+function handleRouteClick(ll){   // map taps fill start first, then destination — enforcing the start→destination order
+  if(!routeStart){ setPoint('start',ll); setFromLabel('Dropped pin'); hideResults('rtFromResults'); updateFieldStates(); updateMapHint(); updateRtControls(); }
+  else if(!routeEnd){ routeEndName='Dropped pin'; routeEndRef=null; setPoint('end',ll); hideResults('rtResults'); updateFieldStates(); computeRoute(); }
 }
 function computeRoute(){
   if(!routeStart||!routeEnd) return;
@@ -1122,6 +1140,7 @@ function altCardHTML(a){
   return `<button class="rt-alt" data-k="${a.key}"><div class="rt-alt-top"><span class="rt-alt-label">${esc(a.label)}</span><span class="rt-alt-figs">${fmtDist(r.meters)} · ${fmtMin(r.meters/(16*1000/60))}</span></div>${barHTML(r)}<div class="rt-alt-note">${Math.round(r.cyclingPct*100)}% dedicated paths</div></button>`;
 }
 function renderRoutes(list){
+  altsOpen=false;   // every fresh result starts with the alternatives folded away (phone-first)
   $('rtHint').hidden=true; $('rtMapHint').hidden=true; $('rtChips').hidden=true;
   const box=$('rtOptions'); box.hidden=false;
   const best=list[0], r=best.route, s=segBar(r), alts=list.slice(1);
@@ -1209,11 +1228,17 @@ function renderChips(){
   box.hidden=false;
 }
 function routeToDestination(ll, name, ref){
-  const box=$('rtResults'); box.hidden=true; box.textContent=''; $('rtSearch').value=''; routeEndName=name; routeEndRef=ref||null;
-  if(!routeStart && user){ setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); }
-  setPoint('end',ll);
+  hideResults('rtResults'); $('rtSearch').value=name||''; routeEndName=name;
+  // Store the name alongside the reference so Save/Recent persist it (they require a name and never coordinates).
+  routeEndRef = ref ? {name:name, rk:ref.rk, rv:ref.rv} : null;
+  setPoint('end',ll); updateFieldStates();
   if(routeStart) computeRoute();
-  else { renderChips(); rtHint('Now set your start — Current location, or tap the map.'); updateMapHint(); updateRtControls(); }
+  else { renderChips(); rtHint('Now set your start — tap ⌖ for current location, search, or tap the map.'); updateMapHint(); updateRtControls(); }
+}
+function setStartFromSearch(p){   // a From-field search pick becomes the start point
+  hideResults('rtFromResults'); $('rtFromSearch').value=p.name;
+  setPoint('start',[p.lng,p.lat]); updateFieldStates(); updateMapHint(); updateRtControls();
+  if(routeEnd) computeRoute(); else renderChips();
 }
 function chipPick(e){
   if(e.rk==='postcode' && !POSTCODES){ loadPostcodes().then(()=>chipPick(e)); return; }
@@ -1254,7 +1279,7 @@ function liveGuidance(){
   if(proj.dist>45){ if(++offRouteCount>=3){ offRouteCount=0; navReroute(); } else setNavBanner('Off route','head back to the highlighted line'); return; }
   offRouteCount=0;
   const end=coords[coords.length-1], dEnd=haversine(user.lat,user.lng,end[1],end[0]);
-  if(dEnd<30){ setNavBanner('You’ve arrived 🎉',''); navActive=false; const b=$('rtGoBtn'); if(b) b.textContent='Go'; return; }
+  if(dEnd<30){ setNavBanner('You’ve arrived 🎉',''); navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; return; }
   const nt=nextTurn(coords, proj);
   if(nt && nt.dist<dEnd+50) setNavBanner(nt.text,'in '+Math.round(nt.dist)+' m');
   else setNavBanner('Continue',Math.round(dEnd)+' m to go');
@@ -1273,50 +1298,74 @@ const GO_HTML=$('rtGoBtn').innerHTML;
 function startNav(){ if(!routeResult) return; navActive=true; offRouteCount=0; if(!locActive) geo.trigger(); closeMenu(); $('rtGoBtn').textContent='End ride'; setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance(); }
 function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
-$('rtSearch').addEventListener('input', ()=>{
-  const raw=$('rtSearch').value.trim(), box=$('rtResults'), pc=raw.replace(/\s+/g,'');
-  if(/^\d{6}$/.test(pc)){                       // a Singapore postcode
+// One search over the offline indexes — parks, MRT/LRT stations and 6-digit postcodes — shared by
+// the From and To fields. Scope is stated in the UI (#rtScope) so nothing feels silently missing.
+const KIND_LABEL={park:'Park', mrt:'MRT', lrt:'LRT', postcode:'Postcode'};
+function searchHits(raw){
+  const pc=raw.replace(/\s+/g,'');
+  if(/^\d{6}$/.test(pc)){                              // a Singapore postcode
     const c=POSTCODES&&POSTCODES.get(pc);
-    if(c){ box._hits=[{name:'Postcode '+pc, lng:c[0], lat:c[1], rk:'postcode', rv:pc}]; box.innerHTML=`<button class="rt-result" data-i="0">Postcode ${pc}</button>`; }
-    else { box._hits=[]; box.innerHTML=`<div class="rt-noresult">${POSTCODES?('No location for postcode '+pc+' — try a park name or tap the map'):'Loading postcodes…'}</div>`; }
-    box.hidden=false;
-    if(!POSTCODES) loadPostcodes().then(()=>{ if($('rtSearch').value.trim().replace(/\s+/g,'')===pc) $('rtSearch').dispatchEvent(new Event('input')); });
-    return;
+    if(c) return {list:[{name:'Postcode '+pc, lng:c[0], lat:c[1], rk:'postcode', rv:pc, kind:'postcode'}]};
+    return {list:[], pc, loading:!POSTCODES};
   }
   const q=raw.toLowerCase();
-  if(q.length<2){ box.hidden=true; box.innerHTML=''; return; }
-  const hits=POI.filter(p=>p.name.toLowerCase().includes(q)).slice(0,6).map(p=>({name:p.name, lng:p.lng, lat:p.lat, rk:'poi', rv:p.name}));
-  box._hits=hits;
-  box.innerHTML = hits.length ? hits.map((p,i)=>`<button class="rt-result" data-i="${i}">${esc(p.name)}</button>`).join('')
-                              : `<div class="rt-noresult">No park matches “${esc(raw)}”</div>`;
+  if(q.length<2) return {list:null};                  // too short to search
+  return {list: POI.filter(p=>p.name.toLowerCase().includes(q)).slice(0,7)
+    .map(p=>({name:p.name, lng:p.lng, lat:p.lat, rk:'poi', rv:p.name, kind:p.kind||'park'}))};
+}
+function renderResults(box, res, raw){
+  if(res.list===null){ box.hidden=true; box.textContent=''; box._hits=null; return; }
+  if(res.list.length){
+    box._hits=res.list;
+    box.innerHTML=res.list.map((p,i)=>`<button class="rt-result" data-i="${i}"><span class="rk">${KIND_LABEL[p.kind]||'Place'}</span><span class="nm">${esc(p.name.replace(/^Postcode /,''))}</span></button>`).join('');
+  } else {
+    box._hits=[];
+    const msg = res.pc ? (res.loading?'Loading postcodes…':'No location for postcode '+esc(res.pc)+' — try a name or tap the map')
+                       : 'No park, MRT or postcode matches “'+esc(raw)+'”';
+    box.innerHTML=`<div class="rt-noresult">${msg}</div>`;
+  }
   box.hidden=false;
-});
-$('rtResults').addEventListener('click', e=>{
-  const b=e.target.closest('.rt-result'); if(!b) return;
-  const p=($('rtResults')._hits||[])[+b.dataset.i]; if(p) routeToDestination([p.lng,p.lat], p.name, {rk:p.rk, rv:p.rv});
-});
+}
+function runSearch(inputId, resultsId){
+  const raw=$(inputId).value.trim(), pc=raw.replace(/\s+/g,''), res=searchHits(raw);
+  renderResults($(resultsId), res, raw);
+  if(res.loading) loadPostcodes().then(()=>{ if($(inputId).value.trim().replace(/\s+/g,'')===pc) runSearch(inputId,resultsId); });
+}
+function pickHit(resultsId, which, i){
+  const p=($(resultsId)._hits||[])[i]; if(!p) return;
+  if(which==='start') setStartFromSearch(p);
+  else routeToDestination([p.lng,p.lat], p.name, {rk:p.rk, rv:p.rv});
+}
+$('rtSearch').addEventListener('input', ()=>runSearch('rtSearch','rtResults'));
+$('rtFromSearch').addEventListener('input', ()=>runSearch('rtFromSearch','rtFromResults'));
+$('rtResults').addEventListener('click', e=>{ const b=e.target.closest('.rt-result'); if(b) pickHit('rtResults','end',+b.dataset.i); });
+$('rtFromResults').addEventListener('click', e=>{ const b=e.target.closest('.rt-result'); if(b) pickHit('rtFromResults','start',+b.dataset.i); });
 $('rtChips').addEventListener('click', e=>{
   const b=e.target.closest('.rt-chip'); if(!b) return;
   const it=($('rtChips')._items||[])[+b.dataset.i]; if(it) chipPick(it);
 });
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
-$('rtLocBtn').addEventListener('click', ()=>{
+$('rtLocBtn').addEventListener('click', ()=>{                    // ⌖ — use my location as the start
   if(!user){ geo.trigger(); toast('Getting your location…'); return; }
-  setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); updateGpsStatus(); updateMapHint();
+  setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); hideResults('rtFromResults');
+  updateGpsStatus(); updateFieldStates(); updateMapHint();
   if(routeEnd) computeRoute(); else { renderChips(); updateRtControls(); }
 });
 $('rtSwapBtn').addEventListener('click', ()=>{
   if(!routeStart||!routeEnd) return;
-  const a=routeStart, b=routeEnd; clearRoutePoints(); setPoint('start',b); setPoint('end',a);
-  setFromLabel(routeEndName||'Dropped pin'); routeEndName='Start point'; routeEndRef=null; computeRoute();
+  const a=routeStart, b=routeEnd, endName=routeEndName, endRef=routeEndRef, fromVal=$('rtFromSearch').value;
+  clearRoutePoints(); setPoint('start',b); setPoint('end',a);
+  setFromLabel(endName||'Dropped pin'); $('rtSearch').value=fromVal||'';
+  routeEndName=fromVal||'Start point'; routeEndRef=endRef&&endRef.name===fromVal?endRef:null; // keep the ref only if it still names the destination
+  updateFieldStates(); computeRoute();
 });
 $('rtMoreBtn').addEventListener('click', ()=>{ const m=$('rtMenu'); const open=m.hidden; m.hidden=!open; $('rtMoreBtn').setAttribute('aria-expanded', String(open)); if(open) setDockH(); });
 $('rtSaveBtn').addEventListener('click', ()=>{
-  if(!routeEndRef){ toast('Search a place or postcode to save it'); return; }   // only named, re-resolvable places
-  savePlace(routeEndRef); closeMenu(); toast('Destination saved');
+  if(!routeEndRef){ toast('Search a place, MRT or postcode to save it'); return; }   // only named, re-resolvable places
+  savePlace(routeEndRef); closeMenu(); toast('Destination saved'); renderChips();
 });
-$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel(user?'Current location':'Set start'); routeResult=null; routeOptions=null; routeEndName=null; routeEndRef=null; refreshRouteSource(); hideOptions(); renderChips(); updateMapHint(); rtHint(''); updateRtControls(); });
+$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel(''); $('rtSearch').value=''; routeResult=null; routeOptions=null; routeEndName=null; routeEndRef=null; refreshRouteSource(); hideOptions(); hideResults('rtFromResults'); hideResults('rtResults'); renderChips(); updateMapHint(); rtHint(''); updateFieldStates(); updateRtControls(); });
 $('rtGpxBtn').addEventListener('click', ()=>{
   if(!routeResult) return;
   try{
