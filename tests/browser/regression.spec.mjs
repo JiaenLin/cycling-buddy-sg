@@ -236,17 +236,20 @@ test('offers a recommended route plus labelled, expandable alternatives, and swa
   expect(errors).toEqual([]);
 });
 
-test('saved/recent chips set a destination and render stored names as text, never HTML', async ({ page }) => {
+test('saved chips re-resolve a name reference to a destination and render stored names as text, never HTML', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.evaluate(() => localStorage.setItem('cbsg.saved',
-    JSON.stringify([{ name: '<img src=x onerror=alert(1)>East Coast Park', lng: 103.9040, lat: 1.3010 }])));
+  await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
+  // Saved entries store a re-resolvable reference (name + kind + key), never coordinates.
+  const rv = await page.evaluate(() => POI[0].name);
+  await page.evaluate((rv) => localStorage.setItem('cbsg.saved',
+    JSON.stringify([{ name: '<img src=x onerror=alert(1)>' + rv, rk: 'poi', rv }])), rv);
   await page.getByRole('button', { name: 'Plan a route' }).click();
   const chip = page.locator('#rtChips .rt-chip').first();
   await expect(chip).toBeVisible();
   // the stored name is inserted as text (textContent), so no element is parsed out of it
   await expect(page.locator('#rtChips img')).toHaveCount(0);
-  await expect(chip.locator('.t')).toContainText('East Coast Park');
-  await chip.click();
+  await expect(chip.locator('.t')).toContainText(rv);
+  await chip.click();   // re-resolves the reference to coordinates and sets the destination
   await expect.poll(() => page.evaluate(() => Boolean(routeEnd))).toBe(true);
   expect(errors).toEqual([]);
 });

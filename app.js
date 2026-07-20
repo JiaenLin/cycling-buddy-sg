@@ -30,7 +30,7 @@ let user=null, nearest=null, locActive=false;
 // routing
 let routeMode=false, graphReady=false, graphLoading=null;
 let routeStart=null, routeEnd=null, routeResult=null, mkStart=null, mkEnd=null;
-let routeOptions=null, routeSel='best', routeEndName=null, altsOpen=false;
+let routeOptions=null, routeSel='best', routeEndName=null, routeEndRef=null, altsOpen=false;
 let recording=false, track=[], recDist=0, recStart=0, recStartEpoch=0, recTimer=null, lastPt=null;
 let pendingUpdateWorker=null, renderPendingUpdate=null;
 // compass / heading-follow ("face direction") mode
@@ -1081,14 +1081,14 @@ function setPoint(which,ll){
   else { if(mkEnd)mkEnd.remove(); mkEnd=m; routeEnd=ll; }
 }
 function onEndpointDragged(which,ll){
-  if(which==='start'){ routeStart=ll; setFromLabel('Dropped pin'); } else { routeEnd=ll; routeEndName='Dropped pin'; }
+  if(which==='start'){ routeStart=ll; setFromLabel('Dropped pin'); } else { routeEnd=ll; routeEndName='Dropped pin'; routeEndRef=null; }
   updateRtControls();
   if(routeStart && routeEnd) computeRoute();   // both ends set → recompute in place
 }
 function clearRoutePoints(){ if(mkStart){mkStart.remove();mkStart=null;} if(mkEnd){mkEnd.remove();mkEnd=null;} routeStart=null; routeEnd=null; }
 function handleRouteClick(ll){
   if(!routeStart){ setPoint('start',ll); setFromLabel('Dropped pin'); updateMapHint(); updateRtControls(); }
-  else if(!routeEnd){ routeEndName='Dropped pin'; setPoint('end',ll); computeRoute(); }
+  else if(!routeEnd){ routeEndName='Dropped pin'; routeEndRef=null; setPoint('end',ll); computeRoute(); }
 }
 function computeRoute(){
   if(!routeStart||!routeEnd) return;
@@ -1103,7 +1103,7 @@ function computeRoute(){
       hideOptions(); refreshRouteSource(); updateRtControls(); return;
     }
     routeOptions=list; renderRoutes(list); selectRoute('best', true); setDock(false); ping('route-planned');
-    if(routeEndName) addRecent({name:routeEndName, lng:routeEnd[0], lat:routeEnd[1]});
+    if(routeEndRef) addRecent(routeEndRef);
     if(routeResult && routeResult.hasCarWay) toast('Heads up: this route uses roads — wear a helmet (required on Singapore roads).');
   });
 }
@@ -1181,33 +1181,45 @@ function updateRtControls(){
   setDockH();   // control set changed → keep FABs/peek synced
 }
 function closeMenu(){ const m=$('rtMenu'); if(m) m.hidden=true; const b=$('rtMoreBtn'); if(b) b.setAttribute('aria-expanded','false'); }
-// Recent + Saved destinations — on-device only (localStorage), no accounts, no sync.
+// Recent + Saved destinations — on-device only (localStorage), no accounts, no sync. We persist a
+// re-resolvable reference (name + kind + key), never coordinates, so no location data is stored.
 function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(_){ return []; } }
 function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
-function addRecent(p){ if(!p||!p.name) return; const r=lsGet('cbsg.recent').filter(x=>x.name!==p.name); r.unshift({name:p.name,lng:p.lng,lat:p.lat}); lsSet('cbsg.recent', r.slice(0,6)); }
-function savePlace(p){ if(!p||!p.name) return; const s=lsGet('cbsg.saved').filter(x=>x.name!==p.name); s.unshift({name:p.name,lng:p.lng,lat:p.lat}); lsSet('cbsg.saved', s.slice(0,12)); }
+function addRecent(e){ if(!e||!e.name||!e.rk) return; const r=lsGet('cbsg.recent').filter(x=>x.name!==e.name); r.unshift({name:e.name,rk:e.rk,rv:e.rv}); lsSet('cbsg.recent', r.slice(0,6)); }
+function savePlace(e){ if(!e||!e.name||!e.rk) return; const s=lsGet('cbsg.saved').filter(x=>x.name!==e.name); s.unshift({name:e.name,rk:e.rk,rv:e.rv}); lsSet('cbsg.saved', s.slice(0,12)); }
+function resolveRef(e){   // reference -> [lng,lat] from the bundled indexes (no stored coordinates)
+  if(e.rk==='postcode') return (POSTCODES && POSTCODES.get(e.rv)) || null;
+  if(e.rk==='poi'){ const p=POI.find(x=>x.name===e.rv); return p?[p.lng,p.lat]:null; }
+  return null;
+}
 function renderChips(){
   const box=$('rtChips'); if(!box) return;
   const saved=lsGet('cbsg.saved'), recent=lsGet('cbsg.recent');
-  const items=[...saved.map(p=>Object.assign({kind:'saved'},p)), ...recent.filter(r=>!saved.some(s=>s.name===r.name)).map(p=>Object.assign({kind:'recent'},p))].slice(0,6);
+  const items=[...saved.map(e=>Object.assign({list:'saved'},e)), ...recent.filter(r=>!saved.some(s=>s.name===r.name)).map(e=>Object.assign({list:'recent'},e))].slice(0,6);
   box.textContent='';
   if(!items.length || routeEnd){ box.hidden=true; box._items=null; return; }
   box._items=items;
   // Names come from localStorage; build with textContent (never innerHTML) so stored text can't be HTML.
-  items.forEach((p,i)=>{
+  items.forEach((e,i)=>{
     const b=document.createElement('button'); b.className='rt-chip'; b.dataset.i=i;
-    const ic=document.createElement('span'); ic.className='ic'; ic.setAttribute('aria-hidden','true'); ic.textContent = p.kind==='saved'?'★':'↻';
-    const t=document.createElement('span'); t.className='t'; t.textContent = p.name||'';
+    const ic=document.createElement('span'); ic.className='ic'; ic.setAttribute('aria-hidden','true'); ic.textContent = e.list==='saved'?'★':'↻';
+    const t=document.createElement('span'); t.className='t'; t.textContent = e.name||'';
     b.append(ic,t); box.appendChild(b);
   });
   box.hidden=false;
 }
-function pickDestination(p){
-  const box=$('rtResults'); box.hidden=true; box.innerHTML=''; $('rtSearch').value=''; routeEndName=p.name;
+function routeToDestination(ll, name, ref){
+  const box=$('rtResults'); box.hidden=true; box.textContent=''; $('rtSearch').value=''; routeEndName=name; routeEndRef=ref||null;
   if(!routeStart && user){ setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); }
-  setPoint('end',[p.lng,p.lat]);
+  setPoint('end',ll);
   if(routeStart) computeRoute();
   else { renderChips(); rtHint('Now set your start — Current location, or tap the map.'); updateMapHint(); updateRtControls(); }
+}
+function chipPick(e){
+  if(e.rk==='postcode' && !POSTCODES){ loadPostcodes().then(()=>chipPick(e)); return; }
+  const ll=resolveRef(e);
+  if(ll) routeToDestination(ll, e.name, {rk:e.rk, rv:e.rv});
+  else toast('Couldn’t find “'+e.name+'” — search again');
 }
 // ---------- live turn-by-turn navigation ----------
 let navActive=false, offRouteCount=0;
@@ -1265,7 +1277,7 @@ $('rtSearch').addEventListener('input', ()=>{
   const raw=$('rtSearch').value.trim(), box=$('rtResults'), pc=raw.replace(/\s+/g,'');
   if(/^\d{6}$/.test(pc)){                       // a Singapore postcode
     const c=POSTCODES&&POSTCODES.get(pc);
-    if(c){ box._hits=[{name:'Postcode '+pc, lng:c[0], lat:c[1]}]; box.innerHTML=`<button class="rt-result" data-i="0">Postcode ${pc}</button>`; }
+    if(c){ box._hits=[{name:'Postcode '+pc, lng:c[0], lat:c[1], rk:'postcode', rv:pc}]; box.innerHTML=`<button class="rt-result" data-i="0">Postcode ${pc}</button>`; }
     else { box._hits=[]; box.innerHTML=`<div class="rt-noresult">${POSTCODES?('No location for postcode '+pc+' — try a park name or tap the map'):'Loading postcodes…'}</div>`; }
     box.hidden=false;
     if(!POSTCODES) loadPostcodes().then(()=>{ if($('rtSearch').value.trim().replace(/\s+/g,'')===pc) $('rtSearch').dispatchEvent(new Event('input')); });
@@ -1273,7 +1285,7 @@ $('rtSearch').addEventListener('input', ()=>{
   }
   const q=raw.toLowerCase();
   if(q.length<2){ box.hidden=true; box.innerHTML=''; return; }
-  const hits=POI.filter(p=>p.name.toLowerCase().includes(q)).slice(0,6);
+  const hits=POI.filter(p=>p.name.toLowerCase().includes(q)).slice(0,6).map(p=>({name:p.name, lng:p.lng, lat:p.lat, rk:'poi', rv:p.name}));
   box._hits=hits;
   box.innerHTML = hits.length ? hits.map((p,i)=>`<button class="rt-result" data-i="${i}">${esc(p.name)}</button>`).join('')
                               : `<div class="rt-noresult">No park matches “${esc(raw)}”</div>`;
@@ -1281,11 +1293,11 @@ $('rtSearch').addEventListener('input', ()=>{
 });
 $('rtResults').addEventListener('click', e=>{
   const b=e.target.closest('.rt-result'); if(!b) return;
-  const p=($('rtResults')._hits||[])[+b.dataset.i]; if(p) pickDestination(p);
+  const p=($('rtResults')._hits||[])[+b.dataset.i]; if(p) routeToDestination([p.lng,p.lat], p.name, {rk:p.rk, rv:p.rv});
 });
 $('rtChips').addEventListener('click', e=>{
   const b=e.target.closest('.rt-chip'); if(!b) return;
-  const p=($('rtChips')._items||[])[+b.dataset.i]; if(p) pickDestination(p);
+  const it=($('rtChips')._items||[])[+b.dataset.i]; if(it) chipPick(it);
 });
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
@@ -1297,15 +1309,14 @@ $('rtLocBtn').addEventListener('click', ()=>{
 $('rtSwapBtn').addEventListener('click', ()=>{
   if(!routeStart||!routeEnd) return;
   const a=routeStart, b=routeEnd; clearRoutePoints(); setPoint('start',b); setPoint('end',a);
-  setFromLabel(routeEndName||'Dropped pin'); routeEndName='Start point'; computeRoute();
+  setFromLabel(routeEndName||'Dropped pin'); routeEndName='Start point'; routeEndRef=null; computeRoute();
 });
 $('rtMoreBtn').addEventListener('click', ()=>{ const m=$('rtMenu'); const open=m.hidden; m.hidden=!open; $('rtMoreBtn').setAttribute('aria-expanded', String(open)); if(open) setDockH(); });
 $('rtSaveBtn').addEventListener('click', ()=>{
-  if(!routeEnd) return;
-  savePlace({name: routeEndName && routeEndName!=='Dropped pin' ? routeEndName : 'Pin '+routeEnd[1].toFixed(3)+', '+routeEnd[0].toFixed(3), lng:routeEnd[0], lat:routeEnd[1]});
-  closeMenu(); toast('Destination saved');
+  if(!routeEndRef){ toast('Search a place or postcode to save it'); return; }   // only named, re-resolvable places
+  savePlace(routeEndRef); closeMenu(); toast('Destination saved');
 });
-$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel(user?'Current location':'Set start'); routeResult=null; routeOptions=null; routeEndName=null; refreshRouteSource(); hideOptions(); renderChips(); updateMapHint(); rtHint(''); updateRtControls(); });
+$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel(user?'Current location':'Set start'); routeResult=null; routeOptions=null; routeEndName=null; routeEndRef=null; refreshRouteSource(); hideOptions(); renderChips(); updateMapHint(); rtHint(''); updateRtControls(); });
 $('rtGpxBtn').addEventListener('click', ()=>{
   if(!routeResult) return;
   try{
