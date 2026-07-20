@@ -184,13 +184,24 @@
       </div>
     </div>
     <div id="viewRoute" hidden>
-      <div class="dk-label" style="justify-content:space-between">
-        <span style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg> Plan a route</span>
+      <div class="dk-label rt-head">
+        <span class="rt-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg> Plan a route</span>
         <button id="routeClose" class="mini-x" aria-label="Exit route planning"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
-      <div id="rtHint" class="dk-sub" style="margin-top:9px">Tap the map to set your start — or use your location.</div>
-      <input id="rtSearch" class="rt-search" type="search" autocomplete="off" placeholder="Search a park to route to…" aria-label="Search a destination by name">
+      <div class="rt-trip">
+        <button class="rt-row rt-from" id="rtLocBtn" type="button" aria-label="Set start to my location">
+          <span class="rt-node rt-node-a" aria-hidden="true"></span>
+          <span class="rt-field"><span class="rt-cap">From</span><span class="rt-val" id="rtFromVal">My location</span></span>
+          <svg class="rt-endic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        </button>
+        <span class="rt-link" aria-hidden="true"></span>
+        <div class="rt-row rt-to">
+          <span class="rt-node rt-node-b" aria-hidden="true"></span>
+          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="To: park name or postcode…" aria-label="Search a destination by park name or Singapore postcode">
+        </div>
+      </div>
       <div id="rtResults" class="rt-results" hidden></div>
+      <div id="rtHint" class="rt-hint" hidden>Tap the map to set your start — or use your location.</div>
       <div id="rtOptions" hidden></div>
       <div id="rtNotice" class="rt-notice" hidden>
         <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
@@ -203,12 +214,11 @@
       </div>
       <div id="rtWx" class="wx-note" hidden data-sev="clear"></div>
       <div class="rt-actions">
-        <button class="btn" id="rtLocBtn">Start: my location</button>
         <button class="btn" id="rtRevBtn" hidden>Reverse</button>
         <button class="btn" id="rtClrBtn" hidden>Clear</button>
         <button class="btn" id="rtGpxBtn" hidden>GPX</button>
         <button class="btn" id="rtImgBtn" hidden>Image</button>
-        <button class="btn primary" id="rtGoBtn" hidden>Go</button>
+        <button class="btn primary rt-go" id="rtGoBtn" hidden>Go</button>
       </div>
       <div id="rtDirs" class="rt-dirs" hidden></div>
     </div>
@@ -243,7 +253,7 @@
       <details><summary>How do I install it on my phone?</summary><p>Open the site in your phone's browser and choose <b>Add to Home Screen</b> — the Share menu in Safari on iPhone, or the browser menu in Chrome on Android. It then runs full-screen and offline like a native app.</p></details>
       <details><summary>Do I need a helmet?</summary><p>Helmets are required by law when cycling on Singapore roads. The app prefers park connectors and avoids expressways, and shows a helmet reminder whenever a route has to use roads.</p></details>
     </div>
-    <p><b>Data &amp; maps</b><br>Park connectors (primary): NParks <i>Park Connector Loop</i> (data.gov.sg) — <span id="sheetKm">—</span> km, 7 loops. Rail Corridor: the former KTM railway heritage trail — <span id="sheetRailKm">—</span> km (dashed line; some stretches closed for improvement works, reopening 2027). Cycling paths (secondary): LTA <i>Cycling Path Network</i> — <span id="sheetCpnKm">—</span> km. Parks &amp; nature reserves: NParks via data.gov.sg — <span id="sheetParks">—</span> green spaces, <span id="sheetParkKm2">—</span> km² (playgrounds, fitness corners and grass verges in that dataset are left off — they're not cycling destinations). Bike parking: LTA <i>Bicycle Rack</i> — <span id="sheetRacks">—</span> racks, <span id="sheetSpaces">—</span> spaces. Cycling diversions (red glow + ⚠️ marker): loop stretches affected by a current closure — <span id="sheetClosure">—</span>; tap for the official map and always follow on-site signage. Weather: NEA <i>2-hour forecast</i> via data.gov.sg (live, refreshed as you ride). Routing, Rail Corridor &amp; basemap: © OpenStreetMap contributors (ODbL); basemap hosting by OpenFreeMap.</p>
+    <p><b>Data &amp; maps</b><br>Park connectors (primary): NParks <i>Park Connector Loop</i> (data.gov.sg) — <span id="sheetKm">—</span> km, 7 loops. Rail Corridor: the former KTM railway heritage trail — <span id="sheetRailKm">—</span> km (dashed line; some stretches closed for improvement works, reopening 2027). Cycling paths (secondary): LTA <i>Cycling Path Network</i> — <span id="sheetCpnKm">—</span> km. Parks &amp; nature reserves: NParks via data.gov.sg — <span id="sheetParks">—</span> green spaces, <span id="sheetParkKm2">—</span> km² (playgrounds, fitness corners and grass verges in that dataset are left off — they're not cycling destinations). Bike parking: LTA <i>Bicycle Rack</i> — <span id="sheetRacks">—</span> racks, <span id="sheetSpaces">—</span> spaces. Cycling diversions (red glow + ⚠️ marker): loop stretches affected by a current closure — <span id="sheetClosure">—</span>; tap for the official map and always follow on-site signage. Weather: NEA <i>2-hour forecast</i> via data.gov.sg (live, refreshed as you ride). Routing, Rail Corridor, postcode search &amp; basemap: © OpenStreetMap contributors (ODbL); basemap hosting by OpenFreeMap. Postcode search covers addresses OpenStreetMap knows (partial cover of the full registry); unknown postcodes fall back to a park search or a map tap.</p>
     <p class="fine">Offline turn-by-turn prefers park connectors and avoids expressways. Your location stays on your device. Visits are counted anonymously — no cookies, no accounts, no personal data. Basemap tiles cache as you view them, so revisited areas work offline.</p>
     <p class="fine">Built by <a href="https://github.com/JiaenLin" target="_blank" rel="noopener">Lin Jiaen</a> · © 2026 Lin Jiaen · All rights reserved.<br>Enjoying the app? Share it with your kakis — tap the share button up top.</p>
   </div>

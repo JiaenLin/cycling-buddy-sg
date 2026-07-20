@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "supplementalRuntimeAssets": [
     "data/graph.json",
+    "data/postcodes.bin",
     "icons/og.png",
     "robots.txt",
     "sitemap.xml",

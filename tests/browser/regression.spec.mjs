@@ -195,6 +195,23 @@ test('offline POI search sets a route destination by name', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
+test('offline postcode search resolves a Singapore postcode to a destination', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  // the postcode index lazy-loads when the planner opens
+  await page.waitForFunction(() => typeof POSTCODES !== 'undefined' && POSTCODES && POSTCODES.size > 1000);
+  const pc = await page.evaluate(() => [...POSTCODES.keys()][0]);
+  await page.fill('#rtSearch', pc);
+  await expect(page.locator('#rtResults .rt-result').first()).toContainText(pc);
+  await page.evaluate(() => handleRouteClick([103.8000, 1.3000]));  // set start by tap
+  await page.locator('#rtResults .rt-result').first().click();       // postcode as destination
+  await expect.poll(() => page.evaluate(() => Boolean(routeEnd))).toBe(true);
+  // an unknown 6-digit code fails gracefully, it does not invent a destination
+  await page.fill('#rtSearch', '000000');
+  await expect(page.locator('#rtResults .rt-noresult')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('renders a shareable route image (PNG)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();
