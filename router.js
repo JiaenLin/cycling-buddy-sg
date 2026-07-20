@@ -150,7 +150,13 @@
     const same=(a,b)=> !!a && !!b && Math.abs(a.meters-b.meters)<40 && Math.abs(a.cyclingPct-b.cyclingPct)<0.02;
     const out=[{key:'best',label:'Best coverage',route:best}];
     if(balanced && !same(balanced,best)) out.push({key:'balanced',label:'Balanced',route:balanced});
-    if(!same(fastest,best) && !out.some(o=>same(o.route,fastest))) out.push({key:'fastest',label:'Fastest',route:fastest});
+    // "Fastest" trades protected paths for a shorter on-road line, so only surface it when it saves a
+    // meaningful distance over the all-paths recommendation — > max(200 m, 8%). A near-equal road route
+    // (e.g. a 1.4 km on-road line vs a 1.5 km all-paths one) is no real time win, so we don't tempt
+    // riders off the cycleway onto roads to shave seconds; Best coverage then stands on its own.
+    const fastSaving=best.meters-fastest.meters;
+    if(fastSaving>Math.max(200,best.meters*0.08) && !same(fastest,best) && !out.some(o=>same(o.route,fastest)))
+      out.push({key:'fastest',label:'Fastest',route:fastest});
     return out;
   }
 

@@ -316,6 +316,15 @@ function checkGraphAndRouter() {
   const routerPath = path.join(ROOT, 'router.js');
   delete require.cache[require.resolve(routerPath)];
   const Router = require(routerPath);
+  // Fastest-gating rule (regression): a near-equal on-road line must NOT be surfaced as "Fastest".
+  // Synthetic graph — an all-paths route (A→B→C on cycleways) vs a slightly shorter residential
+  // shortcut (A→C). The road saves far less than max(200 m, 8%), so routeThree offers Best coverage
+  // alone rather than tempting the rider off the cycleway to shave a few metres.
+  Router.load({ nodes: [[103.80, 1.30], [103.8045, 1.3010], [103.809, 1.30]],
+    edges: [[0, 1, 0, 0, []], [1, 2, 0, 0, []], [0, 2, 3, 0, []]] });
+  const gated = Router.routeThree([103.80, 1.30], [103.809, 1.30]);
+  assert(gated.length === 1 && gated[0].key === 'best',
+    `fastest gate: a marginal on-road shortcut must not surface as Fastest (got ${gated.map(o => o.key).join(',') || 'none'})`);
   const loaded = Router.load(graph);
   assert(loaded.nodes === graph.nodes.length && loaded.edges === graph.edges.length, 'router load count mismatch');
   const fixtures = [
