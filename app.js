@@ -26,7 +26,7 @@ let META=null, CPN_META=null, RAIL_META=null, PCN_FEATURES=[], mapLoaded=false, 
 let PARKS_META=null, RACKS_META=null, RACK_FEATURES=[], nearRack=null, CLOSURES_META=null, POI=[];
 const hidden = new Set();
 let cpnVisible = true, railVisible = true, parksVisible = true, racksVisible = true, closuresVisible = true;
-let user=null, nearest=null, locActive=false, hasFix=false;
+let user=null, nearest=null, locActive=false, pendingStartLoc=false;
 // routing
 let routeMode=false, graphReady=false, graphLoading=null;
 let routeStart=null, routeEnd=null, routeResult=null, mkStart=null, mkEnd=null;
@@ -62,7 +62,7 @@ const geo = new maplibregl.GeolocateControl({
 });
 map.addControl(geo, 'top-right'); // its default button is hidden via CSS; we drive it from our FAB
 geo.on('geolocate', onPos);
-geo.on('error', e => { hasFix=false; setLocActive(false); updateUserArrow(); toast(e && e.code===1 ? 'Location permission denied' : 'Couldn’t get your location'); });
+geo.on('error', e => { pendingStartLoc=false; setLocActive(false); updateUserArrow(); toast(e && e.code===1 ? 'Location permission denied' : 'Couldn’t get your location'); });
 geo.on('trackuserlocationstart', () => setLocActive(true));
 geo.on('trackuserlocationend', () => setLocActive(false));
 
@@ -384,8 +384,8 @@ function onPos(e){
   const c=e.coords;
   const hd = (c.heading!=null && !isNaN(c.heading)) ? c.heading : null; // GPS course-over-ground
   user={lat:c.latitude, lng:c.longitude, acc:c.accuracy, speed:c.speed, heading:hd};
-  hasFix=true;   // a live position exists; the dot + heading arrow stay valid even when tracking drops to background
   updateUserArrow();
+  if(pendingStartLoc){ pendingStartLoc=false; if(routeMode && !routeStart) useCurrentAsStart(); }  // first ⌖ tap resolves once the fix lands
   computeNearest(); updateNearUI(); refreshNearestSource();
   computeNearestRack(); updateRackUI();
   loadWeather(); updateWxUI();   // forecast for the area you're now in (throttled fetch)
@@ -394,23 +394,29 @@ function onPos(e){
   if(navActive) liveGuidance();
 }
 // Heading arrowhead on the blue user dot — rotationAlignment:'map' keeps it on the true bearing.
-let userArrowEl=null, userArrow=null;
+// Visibility mirrors the GeolocateControl dot itself: shown while the dot is on the map (active OR
+// background — so "face direction" keeps it), hidden the instant the dot is removed (location off).
+// Updates are coalesced to a single rAF and skip no-op writes, so a ~60 Hz compass stream can't
+// thrash the marker's layout.
+let userArrowEl=null, userArrow=null, dotEl=null, arrowRAF=0, arrowHead=null, arrowPos=null;
 function ensureUserArrow(){
   if(userArrow) return;
   userArrowEl=document.createElement('div');
   userArrowEl.className='user-arrow'; userArrowEl.style.display='none';
   userArrowEl.setAttribute('aria-hidden','true');
   userArrowEl.innerHTML='<svg viewBox="0 0 36 36" width="36" height="36" fill="none"><path class="ua-cone" d="M18 3.5 L26.8 19 A11 11 0 0 1 9.2 19 Z"/><path class="ua-head" d="M18 3.5 L23.2 13.6 L18 11.3 L12.8 13.6 Z"/></svg>';
-  userArrow=new maplibregl.Marker({element:userArrowEl, rotationAlignment:'map', pitchAlignment:'map', anchor:'center'}).setLngLat([103.8198,1.3521]).addTo(map);
+  userArrow=new maplibregl.Marker({element:userArrowEl, rotationAlignment:'map', anchor:'center'}).setLngLat([103.8198,1.3521]).addTo(map);
 }
-function updateUserArrow(){
-  ensureUserArrow();
-  // Gate on hasFix, not locActive: entering "face direction" pans the map via camLoop, which knocks
-  // MapLibre's GeolocateControl from active-lock to background (firing trackuserlocationend). The blue
-  // dot and our heading arrow are still valid in background, so tie visibility to having a live fix.
-  const h=(user && hasFix)?currentHeading():null;
-  if(h==null){ userArrowEl.style.display='none'; return; }
-  userArrowEl.style.display=''; userArrow.setLngLat([user.lng,user.lat]).setRotation(h);
+function dotShowing(){ if(!dotEl) dotEl=document.querySelector('.maplibregl-user-location-dot'); return !!(dotEl && dotEl.isConnected); }
+function angDiff(a,b){ let d=(a-b)%360; if(d>180)d-=360; else if(d<-180)d+=360; return d; }
+function updateUserArrow(){ if(!arrowRAF) arrowRAF=requestAnimationFrame(applyUserArrow); }  // coalesce bursts → one write/frame
+function applyUserArrow(){
+  arrowRAF=0; ensureUserArrow();
+  const h=(user && dotShowing()) ? currentHeading() : null;
+  if(h==null){ if(userArrowEl.style.display!=='none'){ userArrowEl.style.display='none'; arrowHead=null; } return; }
+  if(userArrowEl.style.display==='none') userArrowEl.style.display='';
+  if(!arrowPos || arrowPos[0]!==user.lng || arrowPos[1]!==user.lat){ userArrow.setLngLat([user.lng,user.lat]); arrowPos=[user.lng,user.lat]; }
+  if(arrowHead==null || Math.abs(angDiff(h,arrowHead))>=1){ userArrow.setRotation(h); arrowHead=h; } // ignore sub-degree jitter
 }
 function computeNearest(){
   if(!user || !PCN_FEATURES.length){ nearest=null; return; }
@@ -1060,7 +1066,8 @@ function enterRoute(){
   if(routeOptions){ renderRoutes(routeOptions); selectRoute(routeSel,false); }
   else resetRoutePanel();   // start is an explicit choice now (⌖ current location / search / tap) — no silent auto-fill
   updateFieldStates();
-  if(!routeStart){ const fs=$('rtFromSearch'); if(fs) fs.focus({preventScroll:true}); }
+  // Deliberately no auto-focus: focusing the search field pops the phone keyboard over the whole
+  // planner. The glowing start field guides where to act; the user taps it when ready to type.
 }
 function exitRoute(){
   routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor=''; closeMenu();
@@ -1071,7 +1078,7 @@ function exitRoute(){
 }
 function rtHint(t){ const el=$('rtHint'); el.textContent=t||''; el.hidden=!t; setDockH(); }
 function setFromLabel(t){ const el=$('rtFromSearch'); if(el) el.value=t||''; }
-function updateGpsStatus(){ const b=$('rtLocBtn'); if(b) b.classList.toggle('live', !!(user && hasFix)); }
+function updateGpsStatus(){ const b=$('rtLocBtn'); if(b) b.classList.toggle('live', dotShowing()); }
 // From and To are harmonised: each accepts search + a map tap; From additionally offers ⌖ current
 // location. We guide start-then-destination — the unset field glows, and To dims until start is set.
 function updateFieldStates(){
@@ -1295,8 +1302,16 @@ function navReroute(){
   });
 }
 const GO_HTML=$('rtGoBtn').innerHTML;
-function startNav(){ if(!routeResult) return; navActive=true; offRouteCount=0; if(!locActive) geo.trigger(); closeMenu(); $('rtGoBtn').textContent='End ride'; setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance(); }
-function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; }
+function startNav(){
+  if(!routeResult) return;
+  navActive=true; offRouteCount=0;
+  if(!locActive) geo.trigger();
+  requestOrientation().then(ok=>{ if(ok) startOrientation(); });   // GO turns the heading arrow on for the ride
+  closeMenu(); setDock(true);                                      // fold the planner so the map + turn banner lead
+  $('rtGoBtn').textContent='End ride';
+  setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance();
+}
+function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 // One search over the offline indexes — parks, MRT/LRT stations and 6-digit postcodes — shared by
 // the From and To fields. Scope is stated in the UI (#rtScope) so nothing feels silently missing.
@@ -1346,11 +1361,17 @@ $('rtChips').addEventListener('click', e=>{
 });
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
-$('rtLocBtn').addEventListener('click', ()=>{                    // ⌖ — use my location as the start
-  if(!user){ geo.trigger(); toast('Getting your location…'); return; }
+function useCurrentAsStart(){
+  if(!user) return;
   setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); hideResults('rtFromResults');
   updateGpsStatus(); updateFieldStates(); updateMapHint();
   if(routeEnd) computeRoute(); else { renderChips(); updateRtControls(); }
+}
+$('rtLocBtn').addEventListener('click', ()=>{                    // ⌖ — use my location as the start
+  // First tap right after launch: no fix yet. Arm a one-shot so the start is set as soon as the
+  // fix lands (onPos), instead of silently needing a second tap.
+  if(!user){ pendingStartLoc=true; geo.trigger(); toast('Getting your location…'); return; }
+  useCurrentAsStart();
 });
 $('rtSwapBtn').addEventListener('click', ()=>{
   if(!routeStart||!routeEnd) return;
