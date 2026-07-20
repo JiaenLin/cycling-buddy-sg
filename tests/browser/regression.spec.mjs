@@ -236,6 +236,21 @@ test('offers a recommended route plus labelled, expandable alternatives, and swa
   expect(errors).toEqual([]);
 });
 
+test('saved/recent chips set a destination and render stored names as text, never HTML', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.evaluate(() => localStorage.setItem('cbsg.saved',
+    JSON.stringify([{ name: '<img src=x onerror=alert(1)>East Coast Park', lng: 103.9040, lat: 1.3010 }])));
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  const chip = page.locator('#rtChips .rt-chip').first();
+  await expect(chip).toBeVisible();
+  // the stored name is inserted as text (textContent), so no element is parsed out of it
+  await expect(page.locator('#rtChips img')).toHaveCount(0);
+  await expect(chip.locator('.t')).toContainText('East Coast Park');
+  await chip.click();
+  await expect.poll(() => page.evaluate(() => Boolean(routeEnd))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('renders a shareable route image (PNG)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();

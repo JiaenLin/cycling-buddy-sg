@@ -1190,9 +1190,16 @@ function renderChips(){
   const box=$('rtChips'); if(!box) return;
   const saved=lsGet('cbsg.saved'), recent=lsGet('cbsg.recent');
   const items=[...saved.map(p=>Object.assign({kind:'saved'},p)), ...recent.filter(r=>!saved.some(s=>s.name===r.name)).map(p=>Object.assign({kind:'recent'},p))].slice(0,6);
-  if(!items.length || routeEnd){ box.hidden=true; box.innerHTML=''; return; }
+  box.textContent='';
+  if(!items.length || routeEnd){ box.hidden=true; box._items=null; return; }
   box._items=items;
-  box.innerHTML=items.map((p,i)=>`<button class="rt-chip" data-i="${i}"><span class="ic" aria-hidden="true">${p.kind==='saved'?'★':'↻'}</span><span class="t">${esc(p.name)}</span></button>`).join('');
+  // Names come from localStorage; build with textContent (never innerHTML) so stored text can't be HTML.
+  items.forEach((p,i)=>{
+    const b=document.createElement('button'); b.className='rt-chip'; b.dataset.i=i;
+    const ic=document.createElement('span'); ic.className='ic'; ic.setAttribute('aria-hidden','true'); ic.textContent = p.kind==='saved'?'★':'↻';
+    const t=document.createElement('span'); t.className='t'; t.textContent = p.name||'';
+    b.append(ic,t); box.appendChild(b);
+  });
   box.hidden=false;
 }
 function pickDestination(p){
