@@ -109,7 +109,8 @@ export default {
 
       return json({ error: 'not found' }, 404, origin);
     } catch (err) {
-      return json({ error: 'server error', detail: String(err && err.message || err) }, 500, origin);
+      console.error(err);                              // logged server-side (wrangler tail); never returned to the client
+      return json({ error: 'server error' }, 500, origin);
     }
   },
 };
