@@ -74,7 +74,7 @@ body{
 .maplibregl-ctrl-attrib a{color:var(--ink-dim)}
 .maplibregl-ctrl-scale{background:var(--panel);border-color:var(--line-strong);color:var(--ink-dim);font-family:var(--mono);font-size:10px}
 /* heading arrowhead on the blue user-location dot — points the way you're facing */
-.user-arrow{width:36px;height:36px;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+.user-arrow{width:36px;height:36px;pointer-events:none}/* no drop-shadow filter: it repainted every compass frame; the white head stroke gives contrast instead */
 .user-arrow .ua-cone{fill:color-mix(in srgb,var(--accent) 30%,transparent)}
 .user-arrow .ua-head{fill:var(--accent);stroke:#fff;stroke-width:1.3;stroke-linejoin:round}
 
@@ -259,7 +259,7 @@ body{
 .rt-swap[hidden]{display:none}
 .rt-swap svg{width:17px;height:17px}
 .rt-swap:active{transform:scale(.9)}
-.rt-input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font-size:14px;font-family:var(--ui);padding:0;outline:none;-webkit-appearance:none;appearance:none}
+.rt-input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font-size:16px;font-family:var(--ui);padding:0;outline:none;-webkit-appearance:none;appearance:none}/* 16px: iOS Safari zooms the page on focus for any <16px input */
 .rt-input::placeholder{color:var(--ink-faint)}
 .rt-scope{margin-top:7px;font-size:11px;color:var(--ink-dim);font-weight:600;letter-spacing:.01em}
 .rt-maphint{margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim);font-weight:600;background:var(--panel-2);border:1px dashed var(--line-strong);border-radius:999px;padding:5px 11px}

@@ -259,20 +259,76 @@ test('saved chips re-resolve a name reference to a destination and render stored
   expect(errors).toEqual([]);
 });
 
-test('the heading arrow survives location tracking dropping to background', async ({ page }) => {
+test('the heading arrow mirrors the location dot: stays in background, hides when the dot is removed', async ({ page }) => {
   const errors = await openArtifact(page);
-  // a live fix + a compass heading → the arrow shows
+  // Stand in for the GeolocateControl dot marker; the arrow follows its DOM presence.
   await page.evaluate(() => {
+    const dot = document.createElement('div');
+    dot.className = 'maplibregl-user-location-dot';
+    document.getElementById('map').appendChild(dot);
+    dotEl = dot;                                   // prime the cached lookup
     user = { lat: 1.30, lng: 103.80, acc: 8, speed: 0, heading: null };
-    hasFix = true; setLocActive(true);
     deviceHeading = 90; deviceHeadingTs = performance.now();
     updateUserArrow();
   });
   await expect.poll(() => page.evaluate(() => userArrowEl && userArrowEl.style.display !== 'none')).toBe(true);
-  // Entering "face direction" pans the map, which knocks MapLibre's GeolocateControl from active-lock
-  // to background (firing trackuserlocationend → setLocActive(false)). The arrow must NOT disappear.
+  // Background transition keeps the dot on the map (only active-lock ends) → the arrow must stay (item 1).
   await page.evaluate(() => { setLocActive(false); updateUserArrow(); });
   await expect.poll(() => page.evaluate(() => userArrowEl && userArrowEl.style.display !== 'none')).toBe(true);
+  // Turning location off removes the dot marker → the arrow hides with it (item 4).
+  await page.evaluate(() => { document.querySelector('.maplibregl-user-location-dot').remove(); updateUserArrow(); });
+  await expect.poll(() => page.evaluate(() => userArrowEl && userArrowEl.style.display === 'none')).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('opening the planner does not auto-focus a field (no keyboard pop over the UI)', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await expect(page.locator('#rtFromRow')).toHaveClass(/glow/);   // glow guides instead of auto-focus
+  const focusedId = await page.evaluate(() => document.activeElement && document.activeElement.id);
+  expect(focusedId).not.toBe('rtFromSearch');
+  expect(focusedId).not.toBe('rtSearch');
+  expect(errors).toEqual([]);
+});
+
+test('the first ⌖ tap sets the start as soon as the location fix lands (no second tap)', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { user = null; geo.trigger = () => true; });   // no fix yet; stub the real geolocation request
+  await page.getByRole('button', { name: 'Use my current location as the start' }).click();
+  await expect.poll(() => page.evaluate(() => pendingStartLoc)).toBe(true);
+  expect(await page.evaluate(() => Boolean(routeStart))).toBe(false);       // armed, not yet set
+  await page.evaluate(() => onPos({ coords: { latitude: 1.305, longitude: 103.82, accuracy: 8, speed: 0, heading: null }, timestamp: Date.now() }));
+  await expect.poll(() => page.evaluate(() => Boolean(routeStart))).toBe(true);   // set automatically on the fix
+  await expect.poll(() => page.evaluate(() => pendingStartLoc)).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('planner search inputs are ≥16px so iOS Safari does not zoom on focus', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  for (const id of ['#rtFromSearch', '#rtSearch']) {
+    const size = await page.locator(id).evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    expect(size).toBeGreaterThanOrEqual(16);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('GO folds the planner and turns the heading arrow on', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.evaluate(() => {
+    window.__oriStarted = false;
+    startOrientation = () => { window.__oriStarted = true; };
+    requestOrientation = () => Promise.resolve(true);
+    geo.trigger = () => {};
+  });
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await page.getByRole('button', { name: 'GO', exact: true }).click();
+  await expect(page.locator('#dock')).toHaveClass(/collapsed/);            // planner folds to a peek
+  await expect.poll(() => page.evaluate(() => navActive)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__oriStarted)).toBe(true);   // heading arrow armed on GO
   expect(errors).toEqual([]);
 });
 
