@@ -60,7 +60,7 @@ test('Pixel 7 Fast 4G profile stays within startup, interaction, routing and Cor
   const warmRoute = await page.evaluate(async () => {
     const previousResult = routeResult;
     const start = performance.now();
-    document.getElementById('rtRevBtn').click();
+    document.getElementById('rtSwapBtn').click();
     while (routeResult === previousResult) await new Promise(requestAnimationFrame);
     return performance.now() - start;
   });
