@@ -12,6 +12,7 @@
   --ink-faint:#889389;
   --accent:#0E86C7;
   --accent-text:#006296;
+  --accent-strong:#0A6DA3;
   --accent-ink:#ffffff;
   --rec:#E02749;
   --cpn:#5E7169;
@@ -38,6 +39,7 @@
   --ink-faint:#6C7D74;
   --accent:#38BDF8;
   --accent-text:#5CCBFA;
+  --accent-strong:#38BDF8;
   --accent-ink:#04202e;
   --rec:#FF3B5C;
   --cpn:#84958D;
@@ -243,7 +245,7 @@ body{
 .rt-step .tx{flex:1;font-size:13px}
 .rt-step .ds{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
 .btn{appearance:none;-webkit-appearance:none;flex:1;padding:11px 12px;border-radius:12px;font-size:13.5px;font-weight:700;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:7px;font-family:var(--ui)}
-.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary{background:var(--accent-strong);color:var(--accent-ink);border-color:transparent}
 .btn:active{transform:scale(.98)}
 /* Author display: rules outrank the UA's [hidden]{display:none}; restate it so the route
    controls (Reverse/Clear/GPX, the road notice, the key and the options) stay hidden until
