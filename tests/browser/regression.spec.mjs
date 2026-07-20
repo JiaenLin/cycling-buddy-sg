@@ -485,42 +485,59 @@ test('keeps the responsive shell inside the viewport and keyboard-closes modal c
   expect(errors).toEqual([]);
 });
 
-test('feedback page draws a path, submits offline to a device queue, and shows a contribution card', async ({ page }) => {
+test('feedback page draws a path and submits it live for review, showing a contribution card', async ({ page }) => {
   const errors = await openFeedback(page);
   await expect(page.locator('h1')).toHaveText('Feedback');
-  // draw two points on the map
+  await page.route('**/api/feedback', route => route.request().method() === 'POST'
+    ? route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":"srv1","ok":true,"status":"pending"}' })
+    : route.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' }));
   await page.evaluate(() => { map.fire('click', { lngLat: { lng: 103.85, lat: 1.30 } }); map.fire('click', { lngLat: { lng: 103.86, lat: 1.31 } }); });
   await expect.poll(() => page.evaluate(() => pts.length)).toBe(2);
   await expect.poll(() => page.evaluate(() => map.getSource('draw')._data.features.length)).toBeGreaterThan(0);
-  // note + optional handle, then submit (no API configured → queued on device + card shown)
   await page.fill('#fbNote', 'New canal connector, not on the map yet');
   await page.fill('#fbName', 'TestRider');
   await page.click('#fbSubmit');
   await expect(page.locator('#fbCard')).toBeVisible();
-  await expect(page.locator('#fbStatus')).toContainText('Saved on your device');
-  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'));
-  expect(queued.length).toBe(1);
-  expect(queued[0].kind).toBe('path');
-  expect(queued[0].geometry.type).toBe('LineString');
-  expect(queued[0].contributor).toBe('TestRider');
-  expect('device' in queued[0]).toBe(false);        // no device/identity persisted in the submission
+  await expect(page.locator('#fbStatus')).toContainText('Sent for review');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'))).toHaveLength(0); // sent, not queued
   await page.click('#fbCardDone');
   await expect(page.locator('#fbCard')).toBeHidden();
   expect(errors).toEqual([]);
 });
 
-test('feedback page: comment mode hides the map, and the community feed placeholders until the service is live', async ({ page }) => {
+test('feedback page queues a comment on the device when the service is unreachable', async ({ page }) => {
   const errors = await openFeedback(page);
+  await page.route('**/api/feedback', route => route.request().method() === 'POST' ? route.abort()
+    : route.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' }));
   await page.click('.fb-mode[data-mode="comment"]');
   await expect(page.locator('#fbMapWrap')).toHaveClass(/comment/);
   await page.fill('#fbNote', 'Love this map, thank you');
   await page.click('#fbSubmit');
+  await expect(page.locator('#fbStatus')).toContainText('saved on your device');
   const queued = await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'));
   expect(queued[0].kind).toBe('comment');
   expect(queued[0].geometry).toBeNull();
-  await page.click('#fbCardDone');                     // dismiss the contribution card (its scrim blocks the page)
-  await expect(page.locator('#fbCard')).toBeHidden();
+  expect('device' in queued[0]).toBe(false);
+  // the only console error allowed is the deliberately-aborted submit request
+  expect(errors.filter(e => !/ERR_FAILED|Failed to load resource/.test(e))).toEqual([]);
+});
+
+test('community feed renders approved items as text (never HTML) and records a per-device vote', async ({ page }) => {
+  const errors = await openFeedback(page);
+  const item = { id: 'f1', createdAt: Date.now() - 3600000, kind: 'path', geometry: null, note: 'Nice <img src=x onerror=alert(1)> canal path', rating: null, contributor: '<b>Rider</b>' };
+  await page.route('**/api/feedback', route => route.request().method() === 'GET'
+    ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [item] }) })
+    : route.fulfill({ status: 201, contentType: 'application/json', body: '{"ok":true}' }));
+  let voteBody = null;
+  await page.route('**/api/feedback/*/vote', route => { voteBody = route.request().postData(); route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }); });
   await page.click('#tabFeed');
-  await expect(page.locator('#fbList .fb-empty')).toContainText('once the feedback service is live');
+  const card = page.locator('#fbList .fb-fcard').first();
+  await expect(card).toBeVisible();
+  await expect(page.locator('#fbList img')).toHaveCount(0);         // stored text inserted via textContent → no element parsed out
+  await expect(card.locator('.note')).toContainText('Nice');
+  await expect(card.locator('.who')).toHaveText('<b>Rider</b>');    // handle shown literally, not as bold
+  await card.locator('.fb-vote').click();
+  await expect(card.locator('.fb-vote')).toContainText('Thanks');
+  expect(voteBody).toContain('device');
   expect(errors).toEqual([]);
 });

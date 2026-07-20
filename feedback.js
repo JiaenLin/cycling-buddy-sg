@@ -2,9 +2,9 @@
    (queued offline), get a shareable contribution card, and browse the moderation-approved community
    feed with a per-device thumbs-up (counts stay owner-only). © 2026 Lin Jiaen. */
 'use strict';
-// Set this to your deployed Cloudflare Worker URL (see worker/README.md). Empty = "service not live
-// yet": submissions save on the device and the feed shows a friendly placeholder.
-const FEEDBACK_API = '';
+// Deployed Cloudflare Worker (see worker/README.md). Empty = "service not live yet": submissions
+// save on the device and the feed shows a friendly placeholder.
+const FEEDBACK_API = 'https://cbsg-feedback.jiaenlin999.workers.dev';
 const APP_VERSION = 'cbsg-v31';
 
 const $ = id => document.getElementById(id);
