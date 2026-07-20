@@ -361,17 +361,34 @@ function tryFit(){
 }
 
 // ---------- geolocation & nearest ----------
-function setLocActive(b){ locActive=b; $('locBtn').classList.toggle('active', b); }
+function setLocActive(b){ locActive=b; $('locBtn').classList.toggle('active', b); updateUserArrow(); }
 function onPos(e){
   const c=e.coords;
   const hd = (c.heading!=null && !isNaN(c.heading)) ? c.heading : null; // GPS course-over-ground
   user={lat:c.latitude, lng:c.longitude, acc:c.accuracy, speed:c.speed, heading:hd};
+  updateUserArrow();
   computeNearest(); updateNearUI(); refreshNearestSource();
   computeNearestRack(); updateRackUI();
   loadWeather(); updateWxUI();   // forecast for the area you're now in (throttled fetch)
   if(recording) pushTrack(user, e.timestamp);
   if(headingMode){ camTarget.center=[user.lng,user.lat]; const b=currentHeading(); if(b!=null) camTarget.bearing=b; }
   if(navActive) liveGuidance();
+}
+// Heading arrowhead on the blue user dot — rotationAlignment:'map' keeps it on the true bearing.
+let userArrowEl=null, userArrow=null;
+function ensureUserArrow(){
+  if(userArrow) return;
+  userArrowEl=document.createElement('div');
+  userArrowEl.className='user-arrow'; userArrowEl.style.display='none';
+  userArrowEl.setAttribute('aria-hidden','true');
+  userArrowEl.innerHTML='<svg viewBox="0 0 36 36" width="36" height="36" fill="none"><path class="ua-cone" d="M18 3.5 L26.8 19 A11 11 0 0 1 9.2 19 Z"/><path class="ua-head" d="M18 3.5 L23.2 13.6 L18 11.3 L12.8 13.6 Z"/></svg>';
+  userArrow=new maplibregl.Marker({element:userArrowEl, rotationAlignment:'map', pitchAlignment:'map', anchor:'center'}).setLngLat([103.8198,1.3521]).addTo(map);
+}
+function updateUserArrow(){
+  ensureUserArrow();
+  const h=(user && locActive)?currentHeading():null;
+  if(h==null){ userArrowEl.style.display='none'; return; }
+  userArrowEl.style.display=''; userArrow.setLngLat([user.lng,user.lat]).setRotation(h);
 }
 function computeNearest(){
   if(!user || !PCN_FEATURES.length){ nearest=null; return; }
@@ -938,6 +955,7 @@ function onOrient(e){
   if(h==null || isNaN(h)) return;
   deviceHeading=(h+360)%360; deviceHeadingTs=performance.now();
   if(headingMode) camTarget.bearing=deviceHeading;
+  updateUserArrow();
 }
 function requestOrientation(){
   try{
@@ -947,7 +965,7 @@ function requestOrientation(){
   return Promise.resolve(true);
 }
 function startOrientation(){ window.addEventListener('deviceorientationabsolute',onOrient,true); window.addEventListener('deviceorientation',onOrient,true); }
-function stopOrientation(){ window.removeEventListener('deviceorientationabsolute',onOrient,true); window.removeEventListener('deviceorientation',onOrient,true); deviceHeading=null; }
+function stopOrientation(){ window.removeEventListener('deviceorientationabsolute',onOrient,true); window.removeEventListener('deviceorientation',onOrient,true); deviceHeading=null; updateUserArrow(); }
 function currentHeading(){
   const now=performance.now();
   if(deviceHeading!=null && (now-deviceHeadingTs)<2500) return deviceHeading;       // live compass
@@ -1026,8 +1044,9 @@ function exitRoute(){
   // Closing the planner keeps the planned route and its markers on the map; only Clear removes them.
   show('viewNearest');
 }
-function rtHint(t){ const el=$('rtHint'); el.textContent=t; el.hidden=false; }
-function hideOptions(){ $('rtOptions').hidden=true; $('rtDirs').hidden=true; $('rtNotice').hidden=true; $('rtKey').hidden=true; $('rtWx').hidden=true; }
+function rtHint(t){ const el=$('rtHint'); el.textContent=t; el.hidden=false; setDockH(); }
+function setFromLabel(t){ const el=$('rtFromVal'); if(el) el.textContent=t; }
+function hideOptions(){ $('rtOptions').hidden=true; $('rtDirs').hidden=true; $('rtNotice').hidden=true; $('rtKey').hidden=true; $('rtWx').hidden=true; setDockH(); }
 function resetRoutePanel(){ hideOptions(); routeOptions=null; rtHint('Tap the map to set your start — or use your location.'); updateRtButtons(); }
 function setPoint(which,ll){
   const color = which==='start' ? '#22B573' : (getVar('--rec')||'#e02749');
@@ -1039,13 +1058,13 @@ function setPoint(which,ll){
   else { if(mkEnd)mkEnd.remove(); mkEnd=m; routeEnd=ll; }
 }
 function onEndpointDragged(which,ll){
-  if(which==='start') routeStart=ll; else routeEnd=ll;
+  if(which==='start'){ routeStart=ll; setFromLabel('Dropped pin'); } else routeEnd=ll;
   updateRtButtons();
   if(routeStart && routeEnd) computeRoute();   // both ends set → recompute in place, route never disappears
 }
 function clearRoutePoints(){ if(mkStart){mkStart.remove();mkStart=null;} if(mkEnd){mkEnd.remove();mkEnd=null;} routeStart=null; routeEnd=null; }
 function handleRouteClick(ll){
-  if(!routeStart){ setPoint('start',ll); rtHint('Now tap your destination.'); updateRtButtons(); }
+  if(!routeStart){ setPoint('start',ll); setFromLabel('Dropped pin'); rtHint('Now tap your destination.'); updateRtButtons(); }
   else if(!routeEnd){ setPoint('end',ll); computeRoute(); }
   // Both ends set: the map click handler no longer routes here, so there is no destructive
   // "start over" tap. Drag a marker to adjust, or use Clear to plan a new route.
@@ -1121,6 +1140,7 @@ function updateRtButtons(){
   $('rtGpxBtn').hidden = !routeResult;
   $('rtImgBtn').hidden = !routeResult;
   $('rtGoBtn').hidden = !routeResult;
+  setDockH();   // control set changed → keep FABs/peek synced
 }
 // ---------- live turn-by-turn navigation ----------
 let navActive=false, offRouteCount=0;
@@ -1183,21 +1203,21 @@ $('rtResults').addEventListener('click', e=>{
   const b=e.target.closest('.rt-result'); if(!b) return;
   const p=($('rtResults')._hits||[])[+b.dataset.i]; if(!p) return;
   const ll=[p.lng,p.lat]; $('rtSearch').value=''; $('rtResults').hidden=true; $('rtResults').innerHTML='';
-  if(!routeStart){ setPoint('start',ll); rtHint('Now search or tap your destination.'); updateRtButtons(); }
+  if(!routeStart){ setPoint('start',ll); setFromLabel(p.name); rtHint('Now search or tap your destination.'); updateRtButtons(); }
   else { setPoint('end',ll); computeRoute(); }   // sets destination and routes
 });
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
 $('rtLocBtn').addEventListener('click', ()=>{
   if(!user){ geo.trigger(); toast('Getting your location…'); return; }
-  setPoint('start',[user.lng,user.lat]);
+  setPoint('start',[user.lng,user.lat]); setFromLabel('My location');
   if(routeEnd) computeRoute(); else { rtHint('Now tap your destination.'); updateRtButtons(); }
 });
 $('rtRevBtn').addEventListener('click', ()=>{
   if(!routeStart||!routeEnd) return;
   const a=routeStart, b=routeEnd; clearRoutePoints(); setPoint('start',b); setPoint('end',a); computeRoute();
 });
-$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); hideOptions(); rtHint('Tap the map to set your start.'); updateRtButtons(); });
+$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel('My location'); routeResult=null; routeOptions=null; refreshRouteSource(); hideOptions(); rtHint('Tap the map to set your start.'); updateRtButtons(); });
 $('rtGpxBtn').addEventListener('click', ()=>{
   if(!routeResult) return;
   try{
