@@ -3,6 +3,7 @@
   "supplementalRuntimeAssets": [
     "data/graph.json",
     "data/postcodes.bin",
+    "data/rideable.lines.geojson",
     "icons/og.png",
     "robots.txt",
     "sitemap.xml",

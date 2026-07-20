@@ -385,6 +385,22 @@ test('saving a searched destination persists a coordinate-free reference (fixes 
   expect(errors).toEqual([]);
 });
 
+test('adds the OSM rideable gap-fill layer, matching and toggling with the cycling paths', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await expect.poll(() => page.evaluate(() => Boolean(map.getLayer('rideable-line') && map.getLayer('rideable-casing')))).toBe(true);
+  // the supplemental data file ships the missing rideable paths
+  const n = await page.evaluate(async () => (await (await fetch('data/rideable.lines.geojson')).json()).features.length);
+  expect(n).toBeGreaterThan(500);
+  // rendered in the same colour as the LTA cycling paths, and visible by default
+  const [rideCol, cpnCol] = await page.evaluate(() => [map.getPaintProperty('rideable-line', 'line-color'), map.getPaintProperty('cpn-line', 'line-color')]);
+  expect(rideCol).toEqual(cpnCol);
+  expect(await page.evaluate(() => map.getLayoutProperty('rideable-line', 'visibility') ?? 'visible')).not.toBe('none');
+  // the single "Cycling paths" toggle controls it together with the LTA layer
+  await page.evaluate(() => { cpnVisible = false; setCpnVis(); });
+  await expect.poll(() => page.evaluate(() => map.getLayoutProperty('rideable-line', 'visibility'))).toBe('none');
+  expect(errors).toEqual([]);
+});
+
 test('renders a shareable route image (PNG)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();

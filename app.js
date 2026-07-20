@@ -82,7 +82,7 @@ function onMapClick(e){
   const rackHit = map.getLayer('racks-pt') ? map.queryRenderedFeatures(e.point,{layers:['racks-pt']})[0] : null;
   if(rackHit){ showRackPopup(e, rackHit); return; }
   // cycling lines take priority so they stay tappable while the rain overlay is on
-  const lineLayers=['pcn-line','rail-open','rail-closed','cpn-line'].filter(id=>map.getLayer(id));
+  const lineLayers=['pcn-line','rail-open','rail-closed','cpn-line','rideable-line'].filter(id=>map.getLayer(id));
   const hits = lineLayers.length ? map.queryRenderedFeatures(e.point,{layers:lineLayers}) : [];
   const isRail=id=>id==='rail-open'||id==='rail-closed';
   if(!hits.length){
@@ -115,7 +115,7 @@ function showClosurePopup(e){
   const html=`<b><i class="sw" style="background:var(--closed)"></i>${esc(title)}</b><span class="pk">${esc(note)}</span>${link}`;
   new maplibregl.Popup({className:'pcn-popup', closeButton:true, maxWidth:'250px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 }
-['pcn-line','cpn-line','rail-open','rail-closed','racks-pt','parks-fill','closed-marker','risk-glow'].forEach(id=>{
+['pcn-line','cpn-line','rideable-line','rail-open','rail-closed','racks-pt','parks-fill','closed-marker','risk-glow'].forEach(id=>{
   map.on('mouseenter', id, () => map.getCanvas().style.cursor='pointer');
   map.on('mouseleave', id, () => map.getCanvas().style.cursor='');
 });
@@ -169,6 +169,15 @@ function addLayers(){
   if(!map.getLayer('cpn-casing')) map.addLayer({id:'cpn-casing',type:'line',source:'cpn',
     layout:{'line-join':'round','line-cap':'round','visibility':cpnVis}, paint:{'line-color':cpnCasing,'line-width':wCpnC,'line-opacity':0.75}});
   if(!map.getLayer('cpn-line')) map.addLayer({id:'cpn-line',type:'line',source:'cpn',
+    layout:{'line-join':'round','line-cap':'round','visibility':cpnVis}, paint:{'line-color':cpnColor,'line-width':wCpn,'line-opacity':0.9}});
+
+  // Rideable-network gap-fill: OSM cycling paths the router can use that the LTA layer doesn't draw.
+  // Rendered identically to the LTA cycling paths (same colour, casing, widths) and toggled with them,
+  // so the map shows everything you can actually ride. Source: data/rideable.lines.geojson (ODbL).
+  if(!map.getSource('rideable')) map.addSource('rideable',{type:'geojson',data:'data/rideable.lines.geojson'});
+  if(!map.getLayer('rideable-casing')) map.addLayer({id:'rideable-casing',type:'line',source:'rideable',
+    layout:{'line-join':'round','line-cap':'round','visibility':cpnVis}, paint:{'line-color':cpnCasing,'line-width':wCpnC,'line-opacity':0.75}});
+  if(!map.getLayer('rideable-line')) map.addLayer({id:'rideable-line',type:'line',source:'rideable',
     layout:{'line-join':'round','line-cap':'round','visibility':cpnVis}, paint:{'line-color':cpnColor,'line-width':wCpn,'line-opacity':0.9}});
 
   // Rail Corridor: the former KTM railway (heritage trail) — a distinct dashed "sleeper" line, above CPN, below the park connectors
@@ -882,8 +891,7 @@ function toggleCpn(row){
 }
 function setCpnVis(){
   const v = cpnVisible ? 'visible' : 'none';
-  if(map.getLayer('cpn-line'))   map.setLayoutProperty('cpn-line','visibility',v);
-  if(map.getLayer('cpn-casing')) map.setLayoutProperty('cpn-casing','visibility',v);
+  for(const id of ['cpn-line','cpn-casing','rideable-line','rideable-casing']) if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',v);
 }
 function toggleLoop(i,row){
   hidden.has(i) ? hidden.delete(i) : hidden.add(i);
