@@ -391,8 +391,8 @@ function checkHtmlAndManifest() {
 function checkServiceWorker() {
   const { version, assets, source } = readShellContract();
   assert(/^cbsg-v\d+$/.test(version), `sw.js: invalid VERSION ${version}`);
-  assert(assets.length === 27 && new Set(assets).size === assets.length,
-    `sw.js: expected 27 unique shell assets, received ${assets.length}`);
+  assert(assets.length === 28 && new Set(assets).size === assets.length,
+    `sw.js: expected 28 unique shell assets, received ${assets.length}`);
   for (const asset of assets) {
     const file = asset === './' ? 'index.html' : asset.replace(/^\.\//, '');
     assert(fs.existsSync(path.join(ROOT, file)), `sw.js: missing shell asset ${asset}`);
@@ -402,6 +402,7 @@ function checkServiceWorker() {
     'vendor/maplibre-gl.js', 'vendor/maplibre-gl.css',
     'data/pcn.lines.geojson', 'data/pcn.meta.json', 'data/cpn.lines.geojson', 'data/cpn.meta.json',
     'data/rail.lines.geojson', 'data/rail.meta.json', 'data/parks.polys.geojson', 'data/parks.meta.json',
+    'data/mrt.json',
     'data/racks.points.geojson', 'data/racks.meta.json', 'data/closures.geojson', 'data/closures.meta.json',
     'data/wx.zones.geojson'
   ];

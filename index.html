@@ -189,19 +189,23 @@
         <button id="routeClose" class="mini-x" aria-label="Exit route planning"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="rt-trip">
-        <button class="rt-row rt-from" id="rtLocBtn" type="button" aria-label="Set start to my location">
+        <div class="rt-row rt-from" id="rtFromRow">
           <span class="rt-node rt-node-a" aria-hidden="true"></span>
-          <span class="rt-field"><span class="rt-cap">From</span><span class="rt-val" id="rtFromVal">Current location</span></span>
-          <span class="rt-status" id="rtGps" hidden><span class="rt-live"></span>GPS on</span>
-        </button>
+          <input id="rtFromSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Start — search or tap the map" aria-label="Start point: search a park, MRT station or postcode, use your current location, or tap the map">
+          <button id="rtLocBtn" class="rt-loc" type="button" aria-label="Use my current location as the start">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg>
+          </button>
+        </div>
+        <div id="rtFromResults" class="rt-results" hidden></div>
         <button class="rt-swap" id="rtSwapBtn" type="button" aria-label="Swap start and destination" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M4.5 6.5 7 4l2.5 2.5M17 20V6M14.5 17.5 17 20l2.5-2.5"/></svg>
         </button>
         <div class="rt-row rt-to" id="rtToRow">
           <span class="rt-node rt-node-b" aria-hidden="true"></span>
-          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Search park, address or postcode…" aria-label="Search a destination by park, address or Singapore postcode">
+          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Destination — park, MRT or postcode" aria-label="Destination: search a park, MRT station or Singapore postcode, or tap the map">
         </div>
       </div>
+      <div id="rtScope" class="rt-scope">Searches parks, MRT stations &amp; 6-digit postcodes — or tap the map</div>
       <div id="rtMapHint" class="rt-maphint" hidden></div>
       <div id="rtChips" class="rt-chips" hidden></div>
       <div id="rtResults" class="rt-results" hidden></div>
@@ -213,11 +217,11 @@
       </div>
       <div id="rtWx" class="wx-note" hidden data-sev="clear"></div>
       <div id="rtActionBar" class="rt-actionbar" hidden>
-        <button class="btn primary rt-go" id="rtGoBtn"><svg class="rt-go-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17.5" r="3"/><circle cx="18" cy="17.5" r="3"/><path d="M6 17.5 10.5 9h4.5l3 8.5M9 9h4"/></svg> GO</button>
+        <button class="btn primary rt-go" id="rtGoBtn">GO</button>
         <button class="rt-more" id="rtMoreBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="More route actions"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
       </div>
       <div id="rtMenu" class="rt-menu" role="menu" hidden>
-        <button class="rt-menu-item" id="rtSaveBtn" role="menuitem" type="button">Save route</button>
+        <button class="rt-menu-item" id="rtSaveBtn" role="menuitem" type="button">Save destination</button>
         <button class="rt-menu-item" id="rtGpxBtn" role="menuitem" type="button">Download GPX</button>
         <button class="rt-menu-item" id="rtImgBtn" role="menuitem" type="button">Share route image</button>
       </div>

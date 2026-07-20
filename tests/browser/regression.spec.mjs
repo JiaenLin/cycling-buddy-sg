@@ -219,11 +219,16 @@ test('offers a recommended route plus labelled, expandable alternatives, and swa
   await page.getByRole('button', { name: 'Plan a route' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect(page.locator('#rtOptions .rt-rec-eyebrow')).toContainText('Best coverage');
-  // alternatives start collapsed; expanding reveals labelled cards
+  // alternatives start collapsed (the #rtAltList carries the hidden attribute) and expand on tap
   const toggle = page.getByRole('button', { name: /View \d+ alternative/ });
   await expect(toggle).toBeVisible();
+  await expect(page.locator('#rtAltList')).toBeHidden();
   await toggle.click();
   await expect(page.locator('#rtAltList .rt-alt').first()).toBeVisible();
+  // and fold back away on a second tap (regression: CSS [hidden] must beat display:flex)
+  await toggle.click();
+  await expect(page.locator('#rtAltList')).toBeHidden();
+  await toggle.click();
   // choosing an alternative changes the active route
   const before = await page.evaluate(() => routeSel);
   await page.locator('#rtAltList .rt-alt').first().click();
@@ -251,6 +256,76 @@ test('saved chips re-resolve a name reference to a destination and render stored
   await expect(chip.locator('.t')).toContainText(rv);
   await chip.click();   // re-resolves the reference to coordinates and sets the destination
   await expect.poll(() => page.evaluate(() => Boolean(routeEnd))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('the heading arrow survives location tracking dropping to background', async ({ page }) => {
+  const errors = await openArtifact(page);
+  // a live fix + a compass heading → the arrow shows
+  await page.evaluate(() => {
+    user = { lat: 1.30, lng: 103.80, acc: 8, speed: 0, heading: null };
+    hasFix = true; setLocActive(true);
+    deviceHeading = 90; deviceHeadingTs = performance.now();
+    updateUserArrow();
+  });
+  await expect.poll(() => page.evaluate(() => userArrowEl && userArrowEl.style.display !== 'none')).toBe(true);
+  // Entering "face direction" pans the map, which knocks MapLibre's GeolocateControl from active-lock
+  // to background (firing trackuserlocationend → setLocActive(false)). The arrow must NOT disappear.
+  await page.evaluate(() => { setLocActive(false); updateUserArrow(); });
+  await expect.poll(() => page.evaluate(() => userArrowEl && userArrowEl.style.display !== 'none')).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('the planner guides start→destination: the active field glows and From accepts search', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  // start is unset → From glows, destination waits (dimmed)
+  await expect(page.locator('#rtFromRow')).toHaveClass(/glow/);
+  await expect(page.locator('#rtToRow')).toHaveClass(/await/);
+  // set the start by searching in the From field (search + tap + ⌖ all set the start)
+  const park = await page.evaluate(() => POI.find(p => p.kind === 'park').name);
+  await page.fill('#rtFromSearch', park.slice(0, 5).toLowerCase());
+  await page.locator('#rtFromResults .rt-result').first().click();
+  await expect.poll(() => page.evaluate(() => Boolean(routeStart))).toBe(true);
+  // the glow moves to the now-active destination field
+  await expect(page.locator('#rtFromRow')).not.toHaveClass(/glow/);
+  await expect(page.locator('#rtToRow')).toHaveClass(/glow/);
+  await expect(page.locator('#rtToRow')).not.toHaveClass(/await/);
+  expect(errors).toEqual([]);
+});
+
+test('search includes MRT/LRT stations and labels the result scope', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.waitForFunction(() => Array.isArray(POI) && POI.some(p => p.kind === 'mrt'));
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  const station = await page.evaluate(() => POI.find(p => p.kind === 'mrt').name); // e.g. "Admiralty MRT"
+  await page.fill('#rtSearch', station.replace(/ MRT$/, '').slice(0, 6).toLowerCase());
+  const row = page.locator('#rtResults .rt-result', { hasText: 'MRT' }).first();
+  await expect(row).toBeVisible();
+  await expect(row.locator('.rk')).toContainText('MRT');
+  await row.click();
+  await expect.poll(() => page.evaluate(() => Boolean(routeEnd) && /MRT$/.test(routeEndName))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('saving a searched destination persists a coordinate-free reference (fixes silent no-op save)', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => handleRouteClick([103.8000, 1.3000]));  // set start by tap
+  const name = await page.evaluate(() => POI.find(p => p.kind === 'park').name);
+  await page.fill('#rtSearch', name.slice(0, 5).toLowerCase());
+  await page.locator('#rtResults .rt-result').first().click();
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await page.getByRole('button', { name: 'More route actions' }).click();
+  await page.getByRole('menuitem', { name: 'Save destination' }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.saved') || '[]'));
+  expect(saved.length).toBeGreaterThan(0);         // before the fix, savePlace bailed on the nameless ref and saved nothing
+  expect(typeof saved[0].name).toBe('string');
+  expect(saved[0].name.length).toBeGreaterThan(0);
+  expect(saved[0].rk).toBeTruthy();
+  expect('lat' in saved[0] || 'lng' in saved[0]).toBe(false);   // never persist coordinates (CodeQL clear-text-storage)
   expect(errors).toEqual([]);
 });
 
