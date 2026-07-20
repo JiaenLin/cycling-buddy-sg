@@ -391,8 +391,8 @@ function checkHtmlAndManifest() {
 function checkServiceWorker() {
   const { version, assets, source } = readShellContract();
   assert(/^cbsg-v\d+$/.test(version), `sw.js: invalid VERSION ${version}`);
-  assert(assets.length === 28 && new Set(assets).size === assets.length,
-    `sw.js: expected 28 unique shell assets, received ${assets.length}`);
+  assert(assets.length === 31 && new Set(assets).size === assets.length,
+    `sw.js: expected 31 unique shell assets, received ${assets.length}`);
   for (const asset of assets) {
     const file = asset === './' ? 'index.html' : asset.replace(/^\.\//, '');
     assert(fs.existsSync(path.join(ROOT, file)), `sw.js: missing shell asset ${asset}`);

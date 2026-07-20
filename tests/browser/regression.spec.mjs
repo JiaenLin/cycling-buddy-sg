@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { openArtifact } from '../helpers/app-fixture.mjs';
+import { openArtifact, TEST_STYLE } from '../helpers/app-fixture.mjs';
+
+// The feedback page is a separate document; set up the same deterministic basemap and open it.
+async function openFeedback(page) {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.route('https://tiles.openfreemap.org/styles/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TEST_STYLE) }));
+  await page.route('**/favicon.ico', route => route.fulfill({ status: 204, body: '' }));
+  await page.goto('/feedback.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => { try { return Boolean(map.getSource('draw')); } catch { return false; } });
+  return errors;
+}
 
 test('loads all critical layers, supports visibility controls, and restores them after a theme change', async ({ page }) => {
   const errors = await openArtifact(page);
@@ -470,5 +482,45 @@ test('keeps the responsive shell inside the viewport and keyboard-closes modal c
   await expect(page.locator('#sheet')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
   await expect(page.locator('#sheet')).not.toHaveClass(/open/);
+  expect(errors).toEqual([]);
+});
+
+test('feedback page draws a path, submits offline to a device queue, and shows a contribution card', async ({ page }) => {
+  const errors = await openFeedback(page);
+  await expect(page.locator('h1')).toHaveText('Feedback');
+  // draw two points on the map
+  await page.evaluate(() => { map.fire('click', { lngLat: { lng: 103.85, lat: 1.30 } }); map.fire('click', { lngLat: { lng: 103.86, lat: 1.31 } }); });
+  await expect.poll(() => page.evaluate(() => pts.length)).toBe(2);
+  await expect.poll(() => page.evaluate(() => map.getSource('draw')._data.features.length)).toBeGreaterThan(0);
+  // note + optional handle, then submit (no API configured → queued on device + card shown)
+  await page.fill('#fbNote', 'New canal connector, not on the map yet');
+  await page.fill('#fbName', 'TestRider');
+  await page.click('#fbSubmit');
+  await expect(page.locator('#fbCard')).toBeVisible();
+  await expect(page.locator('#fbStatus')).toContainText('Saved on your device');
+  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'));
+  expect(queued.length).toBe(1);
+  expect(queued[0].kind).toBe('path');
+  expect(queued[0].geometry.type).toBe('LineString');
+  expect(queued[0].contributor).toBe('TestRider');
+  expect('device' in queued[0]).toBe(false);        // no device/identity persisted in the submission
+  await page.click('#fbCardDone');
+  await expect(page.locator('#fbCard')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('feedback page: comment mode hides the map, and the community feed placeholders until the service is live', async ({ page }) => {
+  const errors = await openFeedback(page);
+  await page.click('.fb-mode[data-mode="comment"]');
+  await expect(page.locator('#fbMapWrap')).toHaveClass(/comment/);
+  await page.fill('#fbNote', 'Love this map, thank you');
+  await page.click('#fbSubmit');
+  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'));
+  expect(queued[0].kind).toBe('comment');
+  expect(queued[0].geometry).toBeNull();
+  await page.click('#fbCardDone');                     // dismiss the contribution card (its scrim blocks the page)
+  await expect(page.locator('#fbCard')).toBeHidden();
+  await page.click('#tabFeed');
+  await expect(page.locator('#fbList .fb-empty')).toContainText('once the feedback service is live');
   expect(errors).toEqual([]);
 });

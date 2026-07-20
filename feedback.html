@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feedback · Cycling Buddy SG</title>
+<meta name="description" content="Help improve the Cycling Buddy SG map — draw a path, drop a pin, or leave a comment.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="feedback.css">
+</head>
+<body>
+<div class="fb-app">
+  <header class="fb-top">
+    <a class="fb-back iconbtn" href="index.html" aria-label="Back to the map" title="Back to the map">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <h1>Feedback</h1>
+    <div class="fb-tabs" role="tablist">
+      <button id="tabGive" class="on" role="tab" aria-selected="true">Give feedback</button>
+      <button id="tabFeed" role="tab" aria-selected="false">Community</button>
+    </div>
+  </header>
+
+  <!-- Give feedback -->
+  <section id="giveView" aria-label="Give feedback">
+    <p class="fb-lead">Spotted a new path, a change, or a hazard? Draw it, pin it, or just tell us — it helps every rider.</p>
+    <div class="fb-modes" role="group" aria-label="Feedback type">
+      <button class="fb-mode on" data-mode="path"><span class="i">✎</span>Draw a path</button>
+      <button class="fb-mode" data-mode="pin"><span class="i">◍</span>Drop a pin</button>
+      <button class="fb-mode" data-mode="comment"><span class="i">✦</span>Just comment</button>
+    </div>
+    <div id="fbMapWrap">
+      <div id="fbmap" role="application" aria-label="Map — tap to draw your path or place a pin"></div>
+      <div class="fb-maphint" id="fbHint">Tap the map to add points along the path. Tap ✓ when done.</div>
+      <div class="fb-drawtools">
+        <button id="fbUndo" type="button">Undo</button>
+        <button id="fbClear" type="button">Clear</button>
+      </div>
+    </div>
+    <form class="fb-form" id="fbForm">
+      <label class="fb-field"><span>What's the update?</span>
+        <textarea id="fbNote" maxlength="2000" rows="3" required placeholder="e.g. New connector path along the canal, not on the map yet."></textarea>
+      </label>
+      <div class="fb-field">
+        <span>Rate this stretch (optional)</span>
+        <div class="fb-stars" id="fbStars" role="radiogroup" aria-label="Rating out of 5"></div>
+      </div>
+      <label class="fb-field"><span>Name to credit (optional)</span>
+        <input id="fbName" maxlength="40" autocomplete="off" placeholder="e.g. KallangRider — leave blank to stay anonymous">
+      </label>
+      <p class="fb-consent">Your drawing, note and chosen name are sent to Cycling Buddy SG to improve the map. Please don't include personal information. No account, no tracking.</p>
+      <button class="btn primary fb-submit" id="fbSubmit" type="submit">Submit feedback</button>
+      <div class="fb-status" id="fbStatus" role="status" hidden></div>
+    </form>
+  </section>
+
+  <!-- Community feed -->
+  <section id="feedView" aria-label="Community feedback" hidden>
+    <p class="fb-lead">Recent contributions from riders, once reviewed. Give a 👍 to the ones you'd like prioritised.</p>
+    <div class="fb-list" id="fbList"></div>
+  </section>
+</div>
+
+<!-- Contribution card (after submit) -->
+<div class="fb-scrim" id="fbCardScrim" hidden></div>
+<div class="fb-card-modal" id="fbCard" role="dialog" aria-modal="true" aria-label="Your contribution" hidden>
+  <canvas id="fbCardCanvas" width="600" height="315"></canvas>
+  <div class="fb-card-actions">
+    <button class="btn primary" id="fbCardShare" type="button">Share card</button>
+    <button class="btn" id="fbCardDone" type="button">Done</button>
+  </div>
+</div>
+
+<div class="fb-toast" id="fbToast" role="status" aria-live="polite"></div>
+<script src="vendor/maplibre-gl.js"></script>
+<script src="feedback.js"></script>
+</body>
+</html>

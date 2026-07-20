@@ -1,12 +1,13 @@
 /* Cycling Buddy SG PWA service worker — offline app shell + runtime basemap tile cache
    © 2026 Lin Jiaen · All rights reserved */
-const VERSION = 'cbsg-v30';
+const VERSION = 'cbsg-v31';
 const SHELL = VERSION + '-shell';
 const TILES = VERSION + '-tiles';
 const TILE_MAX = 800; // cap runtime tile cache entries
 
 const SHELL_ASSETS = [
   './', 'index.html', 'style.css', 'app.js', 'router.js', 'manifest.webmanifest',
+  'feedback.html', 'feedback.css', 'feedback.js',
   'vendor/maplibre-gl.js', 'vendor/maplibre-gl.css', 'vendor/goatcounter-count.js',
   'data/pcn.lines.geojson', 'data/pcn.meta.json',
   'data/cpn.lines.geojson', 'data/cpn.meta.json',
@@ -59,9 +60,11 @@ self.addEventListener('fetch', e => {
   // so counts always register and the tile cache stays clean. (gc.zgo.at kept for older clients.)
   if(url.hostname === 'gc.zgo.at' || url.hostname.endsWith('.goatcounter.com')) return;
 
-  // App navigations -> serve cached shell (offline-first for the page itself)
+  // App navigations -> serve the matching cached page (offline-first). The feedback page is its own
+  // document, so route it there; everything else is the main app shell.
   if(req.mode === 'navigate'){
-    e.respondWith(caches.match('index.html').then(r => r || fetch(req)));
+    const page = url.pathname.endsWith('/feedback.html') ? 'feedback.html' : 'index.html';
+    e.respondWith(caches.match(page).then(r => r || fetch(req)));
     return;
   }
 
