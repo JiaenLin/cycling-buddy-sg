@@ -30,7 +30,7 @@ let user=null, nearest=null, locActive=false;
 // routing
 let routeMode=false, graphReady=false, graphLoading=null;
 let routeStart=null, routeEnd=null, routeResult=null, mkStart=null, mkEnd=null;
-let routeOptions=null, routeSel='max';
+let routeOptions=null, routeSel='best', routeEndName=null, altsOpen=false;
 let recording=false, track=[], recDist=0, recStart=0, recStartEpoch=0, recTimer=null, lastPt=null;
 let pendingUpdateWorker=null, renderPendingUpdate=null;
 // compass / heading-follow ("face direction") mode
@@ -928,7 +928,7 @@ $('themeBtn').addEventListener('click', ()=>{
 });
 
 // ---------- FABs ----------
-$('locBtn').addEventListener('click', ()=>geo.trigger());
+$('locBtn').addEventListener('click', ()=>{ geo.trigger(); requestOrientation().then(ok=>{ if(ok) startOrientation(); }); });  // compass on locate → the heading arrow shows even when standing still
 $('recBtn').addEventListener('click', ()=> recording?stopRec():startRec());
 $('stopBtn').addEventListener('click', stopRec);
 $('doneBtn').addEventListener('click', ()=>show('viewNearest'));
@@ -1048,20 +1048,29 @@ function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
   routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather();
-  // Re-open onto an existing plan instead of discarding it.
-  if(routeOptions){ renderOptions(routeOptions); selectRouteOption(routeSel,false); }
-  else resetRoutePanel();
+  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); updateGpsStatus();
+  if(routeOptions){ renderRoutes(routeOptions); selectRoute(routeSel,false); }
+  else { if(!routeStart && user){ setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); } resetRoutePanel(); }
 }
 function exitRoute(){
-  routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor='';
-  // Closing the planner keeps the planned route and its markers on the map; only Clear removes them.
+  routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor=''; closeMenu();
+  // "Off" means a clean map: leaving the planner clears the plan and its markers — unless you're
+  // actively navigating, when the route stays so you can keep riding it.
+  if(!navActive){ clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); }
   show('viewNearest');
 }
-function rtHint(t){ const el=$('rtHint'); el.textContent=t; el.hidden=false; setDockH(); }
+function rtHint(t){ const el=$('rtHint'); el.textContent=t||''; el.hidden=!t; setDockH(); }
 function setFromLabel(t){ const el=$('rtFromVal'); if(el) el.textContent=t; }
-function hideOptions(){ $('rtOptions').hidden=true; $('rtDirs').hidden=true; $('rtNotice').hidden=true; $('rtKey').hidden=true; $('rtWx').hidden=true; setDockH(); }
-function resetRoutePanel(){ hideOptions(); routeOptions=null; rtHint('Tap the map to set your start — or use your location.'); updateRtButtons(); }
+function updateGpsStatus(){ const el=$('rtGps'); if(el) el.hidden=!(user && locActive); }
+function updateMapHint(){
+  const h=$('rtMapHint'); if(!h) return;
+  if(!routeMode || routeResult){ h.hidden=true; return; }
+  h.textContent = !routeStart ? '◎ Tap the map to set your start, or use Current location'
+                              : '◎ Search above, or tap the map to drop your destination';
+  h.hidden=false;
+}
+function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
+function resetRoutePanel(){ hideOptions(); routeOptions=null; routeEndName=null; renderChips(); updateMapHint(); rtHint(''); updateRtControls(); }
 function setPoint(which,ll){
   const color = which==='start' ? '#22B573' : (getVar('--rec')||'#e02749');
   const m=new maplibregl.Marker({color, draggable:true}).setLngLat(ll).addTo(map);
@@ -1072,60 +1081,76 @@ function setPoint(which,ll){
   else { if(mkEnd)mkEnd.remove(); mkEnd=m; routeEnd=ll; }
 }
 function onEndpointDragged(which,ll){
-  if(which==='start'){ routeStart=ll; setFromLabel('Dropped pin'); } else routeEnd=ll;
-  updateRtButtons();
-  if(routeStart && routeEnd) computeRoute();   // both ends set → recompute in place, route never disappears
+  if(which==='start'){ routeStart=ll; setFromLabel('Dropped pin'); } else { routeEnd=ll; routeEndName='Dropped pin'; }
+  updateRtControls();
+  if(routeStart && routeEnd) computeRoute();   // both ends set → recompute in place
 }
 function clearRoutePoints(){ if(mkStart){mkStart.remove();mkStart=null;} if(mkEnd){mkEnd.remove();mkEnd=null;} routeStart=null; routeEnd=null; }
 function handleRouteClick(ll){
-  if(!routeStart){ setPoint('start',ll); setFromLabel('Dropped pin'); rtHint('Now tap your destination.'); updateRtButtons(); }
-  else if(!routeEnd){ setPoint('end',ll); computeRoute(); }
-  // Both ends set: the map click handler no longer routes here, so there is no destructive
-  // "start over" tap. Drag a marker to adjust, or use Clear to plan a new route.
+  if(!routeStart){ setPoint('start',ll); setFromLabel('Dropped pin'); updateMapHint(); updateRtControls(); }
+  else if(!routeEnd){ routeEndName='Dropped pin'; setPoint('end',ll); computeRoute(); }
 }
 function computeRoute(){
   if(!routeStart||!routeEnd) return;
   ensureGraph().then(ok=>{
     if(!ok) return;
-    const two=Router.routeTwo(routeStart,routeEnd);
-    if(!two){
+    const list=Router.routeThree(routeStart,routeEnd);
+    if(!list){
       routeOptions=null; routeResult=null;
       const sN=Router.nearestNode(routeStart), eN=Router.nearestNode(routeEnd);
       const tooFar = !sN || !eN || sN.dist>Router.MAX_SNAP || eN.dist>Router.MAX_SNAP;
       toast(tooFar ? 'No cycling path near there — tap closer to a route' : 'No route found between those points');
-      hideOptions(); refreshRouteSource(); updateRtButtons(); return;
+      hideOptions(); refreshRouteSource(); updateRtControls(); return;
     }
-    routeOptions=two; renderOptions(two); selectRouteOption('max', true); setDock(false); ping('route-planned');
+    routeOptions=list; renderRoutes(list); selectRoute('best', true); setDock(false); ping('route-planned');
+    if(routeEndName) addRecent({name:routeEndName, lng:routeEnd[0], lat:routeEnd[1]});
     if(routeResult && routeResult.hasCarWay) toast('Heads up: this route uses roads — wear a helmet (required on Singapore roads).');
   });
 }
 function fmtMin(m){ m=Math.max(1,Math.round(m)); return m<60 ? m+' min' : Math.floor(m/60)+'h '+(m%60)+'m'; }
-function optCard(k,label,r){
-  const km=r.meters/1000, dist = km<1 ? Math.round(r.meters)+' m' : km.toFixed(1)+' km';
-  return `<button class="rt-opt" data-k="${k}">`+
-    `<span class="tag">${label}</span>`+
-    `<span class="mid"><span class="big">${dist}</span><span class="sub">${fmtMin(r.meters/(16*1000/60))} · ${Math.round(100*r.pcnMeters/Math.max(1,r.meters))}% park connector</span></span>`+
-    `<span class="pct">${Math.round(100*r.cyclingPct)}%<small>cycling</small></span>`+
-    `</button>`;
+function fmtDist(m){ return m<1000 ? Math.round(m)+' m' : (m/1000).toFixed(1)+' km'; }
+function segBar(r){ const t=Math.max(1,r.meters); return {ded:100*r.cyclingMeters/t, low:100*(r.footMeters+r.quietRoadMeters)/t, oth:100*r.busyRoadMeters/t}; }
+function barHTML(r){ const s=segBar(r); return `<div class="rt-bar"><span style="width:${s.ded}%;background:var(--seg-ded)"></span><span style="width:${s.low}%;background:var(--seg-low)"></span><span style="width:${s.oth}%;background:var(--seg-oth)"></span></div>`; }
+function optByKey(k){ return (routeOptions||[]).find(o=>o.key===k); }
+function exposureHTML(r){
+  if(r.roadMeters<20) return '';
+  const txt = r.busyRoadMeters>=20 ? fmtDist(r.busyRoadMeters)+' on through-roads' : fmtDist(r.roadMeters)+' on quiet roads';
+  return `<div class="rt-expo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>${txt}</div>`;
 }
-function renderOptions(two){
-  $('rtHint').hidden=true;
+function altCardHTML(a){
+  const r=a.route;
+  return `<button class="rt-alt" data-k="${a.key}"><div class="rt-alt-top"><span class="rt-alt-label">${esc(a.label)}</span><span class="rt-alt-figs">${fmtDist(r.meters)} · ${fmtMin(r.meters/(16*1000/60))}</span></div>${barHTML(r)}<div class="rt-alt-note">${Math.round(r.cyclingPct*100)}% dedicated paths</div></button>`;
+}
+function renderRoutes(list){
+  $('rtHint').hidden=true; $('rtMapHint').hidden=true; $('rtChips').hidden=true;
   const box=$('rtOptions'); box.hidden=false;
-  const same=Math.abs(two.max.meters-two.balanced.meters)<50 && Math.abs(two.max.cyclingPct-two.balanced.cyclingPct)<0.01;
-  box.innerHTML = same ? optCard('max','Best route',two.max)
-                       : optCard('max','Most cycling',two.max)+optCard('balanced','Shorter',two.balanced);
-  box.querySelectorAll('.rt-opt').forEach(el=>el.addEventListener('click',()=>selectRouteOption(el.dataset.k,false)));
+  const best=list[0], r=best.route, s=segBar(r), alts=list.slice(1);
+  let html=`<div class="rt-rec" data-k="${best.key}">`+
+    `<div class="rt-rec-eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 8.9 8 11 4.6-2.1 8-6 8-11V5l-8-3z"/></svg>Recommended · ${esc(best.label)}</div>`+
+    `<div class="rt-metrics"><span class="big">${fmtDist(r.meters)}</span><span class="t">· ${fmtMin(r.meters/(16*1000/60))} ride</span><span class="pct">${Math.round(r.cyclingPct*100)}% paths</span></div>`+
+    barHTML(r)+
+    `<div class="rt-legend"><span><i style="background:var(--seg-ded)"></i>${Math.round(s.ded)}% paths</span><span><i style="background:var(--seg-low)"></i>${Math.round(s.low)}% quiet</span><span><i style="background:var(--seg-oth)"></i>${Math.round(s.oth)}% roads</span></div>`+
+    exposureHTML(r)+`</div>`;
+  if(alts.length){
+    html+=`<button class="rt-alt-toggle" aria-expanded="${altsOpen}" aria-controls="rtAltList"><span>View ${alts.length} alternative${alts.length>1?'s':''} — ${alts.map(a=>esc(a.label)).join(' · ')}</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`+
+      `<div id="rtAltList" class="rt-alt-list"${altsOpen?'':' hidden'}>${alts.map(altCardHTML).join('')}</div>`;
+  }
+  box.innerHTML=html;
+  box.querySelector('.rt-rec').addEventListener('click',()=>selectRoute(best.key,false));
+  const tgl=box.querySelector('.rt-alt-toggle');
+  if(tgl) tgl.addEventListener('click',()=>{ altsOpen=!altsOpen; const l=box.querySelector('.rt-alt-list'); if(l) l.hidden=!altsOpen; tgl.setAttribute('aria-expanded',String(altsOpen)); setDockH(); });
+  box.querySelectorAll('.rt-alt').forEach(el=>el.addEventListener('click',()=>selectRoute(el.dataset.k,false)));
 }
-function selectRouteOption(k, fit){
-  if(!routeOptions) return;
-  routeSel=k; routeResult=routeOptions[k]||routeOptions.max;
-  $('rtOptions').querySelectorAll('.rt-opt').forEach(el=>el.classList.toggle('sel', el.dataset.k===k));
-  refreshRouteSource(); renderDirs(routeResult.directions); updateRtButtons();
-  $('rtKey').hidden=false;
+function selectRoute(k, fit){
+  const o=optByKey(k)||(routeOptions&&routeOptions[0]); if(!o) return;
+  routeSel=o.key; routeResult=o.route;
+  const box=$('rtOptions'), rec=box.querySelector('.rt-rec');
+  if(rec) rec.classList.toggle('sel', rec.dataset.k===o.key);
+  box.querySelectorAll('.rt-alt').forEach(el=>el.classList.toggle('sel', el.dataset.k===o.key));
+  refreshRouteSource(); renderDirs(routeResult.directions);
   $('rtNotice').hidden = !routeResult.hasCarWay;
-  updateRouteWx();
-  updatePeek();
-  if(fit){ const b=new maplibregl.LngLatBounds(); routeResult.coords.forEach(c=>b.extend(c)); map.fitBounds(b,{padding:{top:110,bottom:280,left:50,right:50}}); }
+  updateRouteWx(); updateRtControls(); updatePeek();
+  if(fit){ const b=new maplibregl.LngLatBounds(); routeResult.coords.forEach(c=>b.extend(c)); map.fitBounds(b,{padding:{top:110,bottom:300,left:50,right:50}}); }
 }
 const DIR_ICONS={
   start:'<path d="M12 20V6"/><path d="M6 11l6-6 6 6"/>',
@@ -1148,13 +1173,34 @@ function renderDirs(dirs){
   }
   box.hidden=false;
 }
-function updateRtButtons(){
+function updateRtControls(){
+  $('rtActionBar').hidden = !routeResult;
   $('rtClrBtn').hidden = !(routeStart||routeEnd);
-  $('rtRevBtn').hidden = !(routeStart&&routeEnd);
-  $('rtGpxBtn').hidden = !routeResult;
-  $('rtImgBtn').hidden = !routeResult;
-  $('rtGoBtn').hidden = !routeResult;
+  $('rtSwapBtn').hidden = !(routeStart&&routeEnd);
+  if(!routeResult) closeMenu();
   setDockH();   // control set changed → keep FABs/peek synced
+}
+function closeMenu(){ const m=$('rtMenu'); if(m) m.hidden=true; const b=$('rtMoreBtn'); if(b) b.setAttribute('aria-expanded','false'); }
+// Recent + Saved destinations — on-device only (localStorage), no accounts, no sync.
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(_){ return []; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
+function addRecent(p){ if(!p||!p.name) return; const r=lsGet('cbsg.recent').filter(x=>x.name!==p.name); r.unshift({name:p.name,lng:p.lng,lat:p.lat}); lsSet('cbsg.recent', r.slice(0,6)); }
+function savePlace(p){ if(!p||!p.name) return; const s=lsGet('cbsg.saved').filter(x=>x.name!==p.name); s.unshift({name:p.name,lng:p.lng,lat:p.lat}); lsSet('cbsg.saved', s.slice(0,12)); }
+function renderChips(){
+  const box=$('rtChips'); if(!box) return;
+  const saved=lsGet('cbsg.saved'), recent=lsGet('cbsg.recent');
+  const items=[...saved.map(p=>Object.assign({kind:'saved'},p)), ...recent.filter(r=>!saved.some(s=>s.name===r.name)).map(p=>Object.assign({kind:'recent'},p))].slice(0,6);
+  if(!items.length || routeEnd){ box.hidden=true; box.innerHTML=''; return; }
+  box._items=items;
+  box.innerHTML=items.map((p,i)=>`<button class="rt-chip" data-i="${i}"><span class="ic" aria-hidden="true">${p.kind==='saved'?'★':'↻'}</span><span class="t">${esc(p.name)}</span></button>`).join('');
+  box.hidden=false;
+}
+function pickDestination(p){
+  const box=$('rtResults'); box.hidden=true; box.innerHTML=''; $('rtSearch').value=''; routeEndName=p.name;
+  if(!routeStart && user){ setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); }
+  setPoint('end',[p.lng,p.lat]);
+  if(routeStart) computeRoute();
+  else { renderChips(); rtHint('Now set your start — Current location, or tap the map.'); updateMapHint(); updateRtControls(); }
 }
 // ---------- live turn-by-turn navigation ----------
 let navActive=false, offRouteCount=0;
@@ -1198,13 +1244,15 @@ function navReroute(){
   if(!routeEnd || !user) return;
   toast('Off route — rerouting');
   ensureGraph().then(ok=>{ if(!ok) return;
-    const two=Router.routeTwo([user.lng,user.lat], routeEnd); if(!two) return;
-    routeStart=[user.lng,user.lat]; routeOptions=two; routeResult=two[routeSel]||two.max;
-    refreshRouteSource(); renderDirs(routeResult.directions); updateRtButtons(); setNavArrows(navStage===2);
+    const list=Router.routeThree([user.lng,user.lat], routeEnd); if(!list) return;
+    routeStart=[user.lng,user.lat]; routeOptions=list;
+    const o=list.find(x=>x.key===routeSel)||list[0]; routeSel=o.key; routeResult=o.route;
+    refreshRouteSource(); renderDirs(routeResult.directions); updateRtControls(); setNavArrows(navStage===2);
   });
 }
-function startNav(){ if(!routeResult) return; navActive=true; offRouteCount=0; if(!locActive) geo.trigger(); $('rtGoBtn').textContent='End'; setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance(); }
-function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.textContent='Go'; const el=$('navBanner'); if(el) el.hidden=true; }
+const GO_HTML=$('rtGoBtn').innerHTML;
+function startNav(){ if(!routeResult) return; navActive=true; offRouteCount=0; if(!locActive) geo.trigger(); closeMenu(); $('rtGoBtn').textContent='End ride'; setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance(); }
+function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 $('rtSearch').addEventListener('input', ()=>{
   const raw=$('rtSearch').value.trim(), box=$('rtResults'), pc=raw.replace(/\s+/g,'');
@@ -1226,23 +1274,31 @@ $('rtSearch').addEventListener('input', ()=>{
 });
 $('rtResults').addEventListener('click', e=>{
   const b=e.target.closest('.rt-result'); if(!b) return;
-  const p=($('rtResults')._hits||[])[+b.dataset.i]; if(!p) return;
-  const ll=[p.lng,p.lat]; $('rtSearch').value=''; $('rtResults').hidden=true; $('rtResults').innerHTML='';
-  if(!routeStart){ setPoint('start',ll); setFromLabel(p.name); rtHint('Now search or tap your destination.'); updateRtButtons(); }
-  else { setPoint('end',ll); computeRoute(); }   // sets destination and routes
+  const p=($('rtResults')._hits||[])[+b.dataset.i]; if(p) pickDestination(p);
+});
+$('rtChips').addEventListener('click', e=>{
+  const b=e.target.closest('.rt-chip'); if(!b) return;
+  const p=($('rtChips')._items||[])[+b.dataset.i]; if(p) pickDestination(p);
 });
 $('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
 $('routeClose').addEventListener('click', exitRoute);
 $('rtLocBtn').addEventListener('click', ()=>{
   if(!user){ geo.trigger(); toast('Getting your location…'); return; }
-  setPoint('start',[user.lng,user.lat]); setFromLabel('My location');
-  if(routeEnd) computeRoute(); else { rtHint('Now tap your destination.'); updateRtButtons(); }
+  setPoint('start',[user.lng,user.lat]); setFromLabel('Current location'); updateGpsStatus(); updateMapHint();
+  if(routeEnd) computeRoute(); else { renderChips(); updateRtControls(); }
 });
-$('rtRevBtn').addEventListener('click', ()=>{
+$('rtSwapBtn').addEventListener('click', ()=>{
   if(!routeStart||!routeEnd) return;
-  const a=routeStart, b=routeEnd; clearRoutePoints(); setPoint('start',b); setPoint('end',a); computeRoute();
+  const a=routeStart, b=routeEnd; clearRoutePoints(); setPoint('start',b); setPoint('end',a);
+  setFromLabel(routeEndName||'Dropped pin'); routeEndName='Start point'; computeRoute();
 });
-$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel('My location'); routeResult=null; routeOptions=null; refreshRouteSource(); hideOptions(); rtHint('Tap the map to set your start.'); updateRtButtons(); });
+$('rtMoreBtn').addEventListener('click', ()=>{ const m=$('rtMenu'); const open=m.hidden; m.hidden=!open; $('rtMoreBtn').setAttribute('aria-expanded', String(open)); if(open) setDockH(); });
+$('rtSaveBtn').addEventListener('click', ()=>{
+  if(!routeEnd) return;
+  savePlace({name: routeEndName && routeEndName!=='Dropped pin' ? routeEndName : 'Pin '+routeEnd[1].toFixed(3)+', '+routeEnd[0].toFixed(3), lng:routeEnd[0], lat:routeEnd[1]});
+  closeMenu(); toast('Destination saved');
+});
+$('rtClrBtn').addEventListener('click', ()=>{ stopNav(); clearRoutePoints(); setFromLabel(user?'Current location':'Set start'); routeResult=null; routeOptions=null; routeEndName=null; refreshRouteSource(); hideOptions(); renderChips(); updateMapHint(); rtHint(''); updateRtControls(); });
 $('rtGpxBtn').addEventListener('click', ()=>{
   if(!routeResult) return;
   try{

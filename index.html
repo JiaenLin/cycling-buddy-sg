@@ -185,41 +185,43 @@
     </div>
     <div id="viewRoute" hidden>
       <div class="dk-label rt-head">
-        <span class="rt-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg> Plan a route</span>
+        <span class="rt-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg> Plan a ride</span>
         <button id="routeClose" class="mini-x" aria-label="Exit route planning"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="rt-trip">
         <button class="rt-row rt-from" id="rtLocBtn" type="button" aria-label="Set start to my location">
           <span class="rt-node rt-node-a" aria-hidden="true"></span>
-          <span class="rt-field"><span class="rt-cap">From</span><span class="rt-val" id="rtFromVal">My location</span></span>
-          <svg class="rt-endic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          <span class="rt-field"><span class="rt-cap">From</span><span class="rt-val" id="rtFromVal">Current location</span></span>
+          <span class="rt-status" id="rtGps" hidden><span class="rt-live"></span>GPS on</span>
         </button>
-        <span class="rt-link" aria-hidden="true"></span>
-        <div class="rt-row rt-to">
+        <button class="rt-swap" id="rtSwapBtn" type="button" aria-label="Swap start and destination" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M4.5 6.5 7 4l2.5 2.5M17 20V6M14.5 17.5 17 20l2.5-2.5"/></svg>
+        </button>
+        <div class="rt-row rt-to" id="rtToRow">
           <span class="rt-node rt-node-b" aria-hidden="true"></span>
-          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="To: park name or postcode…" aria-label="Search a destination by park name or Singapore postcode">
+          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Search park, address or postcode…" aria-label="Search a destination by park, address or Singapore postcode">
         </div>
       </div>
+      <div id="rtMapHint" class="rt-maphint" hidden></div>
+      <div id="rtChips" class="rt-chips" hidden></div>
       <div id="rtResults" class="rt-results" hidden></div>
-      <div id="rtHint" class="rt-hint" hidden>Tap the map to set your start — or use your location.</div>
+      <div id="rtHint" class="rt-hint" hidden>Search, tap the map, or pick a saved place to set your destination.</div>
       <div id="rtOptions" hidden></div>
       <div id="rtNotice" class="rt-notice" hidden>
         <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
         Uses roads — wear a helmet (required on Singapore roads).
       </div>
-      <div id="rtKey" class="rt-key" hidden>
-        <span><i style="background:var(--accent)"></i>Cycling path</span>
-        <span><i style="background:#F79009"></i>Road</span>
-        <span><i style="background:#94A3B8"></i>Footpath</span>
-      </div>
       <div id="rtWx" class="wx-note" hidden data-sev="clear"></div>
-      <div class="rt-actions">
-        <button class="btn" id="rtRevBtn" hidden>Reverse</button>
-        <button class="btn" id="rtClrBtn" hidden>Clear</button>
-        <button class="btn" id="rtGpxBtn" hidden>GPX</button>
-        <button class="btn" id="rtImgBtn" hidden>Image</button>
-        <button class="btn primary rt-go" id="rtGoBtn" hidden>Go</button>
+      <div id="rtActionBar" class="rt-actionbar" hidden>
+        <button class="btn primary rt-go" id="rtGoBtn"><svg class="rt-go-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17.5" r="3"/><circle cx="18" cy="17.5" r="3"/><path d="M6 17.5 10.5 9h4.5l3 8.5M9 9h4"/></svg> GO</button>
+        <button class="rt-more" id="rtMoreBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="More route actions"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
       </div>
+      <div id="rtMenu" class="rt-menu" role="menu" hidden>
+        <button class="rt-menu-item" id="rtSaveBtn" role="menuitem" type="button">Save route</button>
+        <button class="rt-menu-item" id="rtGpxBtn" role="menuitem" type="button">Download GPX</button>
+        <button class="rt-menu-item" id="rtImgBtn" role="menuitem" type="button">Share route image</button>
+      </div>
+      <button class="rt-clear" id="rtClrBtn" type="button" hidden>Clear route</button>
       <div id="rtDirs" class="rt-dirs" hidden></div>
     </div>
     </div>
