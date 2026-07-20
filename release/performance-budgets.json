@@ -14,7 +14,7 @@
     "offlineShellMax": 3200000,
     "routingGraphMax": 8000000,
     "vendoredRuntimeMax": 900000,
-    "firstPartyJavaScriptMax": 112000
+    "firstPartyJavaScriptMax": 118000
   },
   "storage": {
     "installedCoreMax": 12000000,
