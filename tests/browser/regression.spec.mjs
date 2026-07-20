@@ -344,6 +344,23 @@ test('GO folds the planner and turns the heading arrow on', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
+test('the route button warns and keeps navigation instead of tearing it down mid-ride', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.evaluate(() => { startOrientation = () => {}; requestOrientation = () => Promise.resolve(false); geo.trigger = () => {}; });
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await page.getByRole('button', { name: 'GO', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navActive)).toBe(true);
+  // tapping the route button during a ride must warn, not exit — GO mode, route-mode and the route stay
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await expect(page.locator('#toast')).toContainText('End your ride first');
+  expect(await page.evaluate(() => navActive)).toBe(true);
+  expect(await page.evaluate(() => routeMode)).toBe(true);
+  expect(await page.evaluate(() => Boolean(routeResult))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('the planner guides start→destination: the active field glows and From accepts search', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);

@@ -1,5 +1,9 @@
 /* Feedback page — reuses the design tokens from style.css (:root vars, .btn, .iconbtn). */
-body{margin:0;background:var(--bg,#f6f7f5);color:var(--ink);font-family:var(--ui)}
+/* style.css locks the main app to a non-scrolling full-screen map (html,body{height:100%} +
+   body{overflow:hidden}). This is a normal document page, so undo that and let it scroll. */
+html{height:auto}
+body{margin:0;background:var(--bg,#f6f7f5);color:var(--ink);font-family:var(--ui);
+  height:auto;min-height:100%;overflow-y:auto;overflow-x:hidden;-webkit-user-select:auto;user-select:auto}
 .fb-app{max-width:720px;margin:0 auto;padding:0 14px 40px;box-sizing:border-box}
 .fb-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 0;background:var(--bg,#f6f7f5);flex-wrap:wrap}
 .fb-back{flex:0 0 auto}

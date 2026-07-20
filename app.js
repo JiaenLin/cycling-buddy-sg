@@ -1078,6 +1078,9 @@ function enterRoute(){
   // planner. The glowing start field guides where to act; the user taps it when ready to type.
 }
 function exitRoute(){
+  // While a ride is running the route button / X must NOT tear down the planner — that used to hide
+  // the GO controls and strand the route line on the map. Warn and keep navigation intact instead.
+  if(navActive){ toast('End your ride first'); return; }
   routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor=''; closeMenu();
   // "Off" means a clean map: leaving the planner clears the plan and its markers — unless you're
   // actively navigating, when the route stays so you can keep riding it.

@@ -5,7 +5,7 @@
 // Deployed Cloudflare Worker (see worker/README.md). Empty = "service not live yet": submissions
 // save on the device and the feed shows a friendly placeholder.
 const FEEDBACK_API = 'https://cbsg-feedback.jiaenlin999.workers.dev';
-const APP_VERSION = 'cbsg-v31';
+const APP_VERSION = 'cbsg-v32';
 
 const $ = id => document.getElementById(id);
 const getVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -63,7 +63,7 @@ document.querySelectorAll('.fb-mode').forEach(btn=>btn.addEventListener('click',
   document.querySelectorAll('.fb-mode').forEach(b=>b.classList.toggle('on', b===btn));
   mode=btn.dataset.mode;
   $('fbMapWrap').classList.toggle('comment', mode==='comment');
-  $('fbHint').textContent = mode==='path' ? 'Tap the map to add points along the path.' : 'Tap the map to place a single pin.';
+  $('fbHint').textContent = mode==='path' ? 'Tap the map to drop points — each tap adds a corner and they join into a path. Undo removes the last.' : 'Tap the map to place a single pin.';
   renderDraw();
   if(mode!=='comment') setTimeout(()=>map.resize(), 60);
 }));

@@ -27,26 +27,26 @@
 
   <!-- Give feedback -->
   <section id="giveView" aria-label="Give feedback">
-    <p class="fb-lead">Spotted a new path, a change, or a hazard? Draw it, pin it, or just tell us — it helps every rider.</p>
+    <p class="fb-lead">Spotted a new path, a change, or a hazard? Trace it, pin it, or just tell us — it helps every rider.</p>
     <div class="fb-modes" role="group" aria-label="Feedback type">
-      <button class="fb-mode on" data-mode="path"><span class="i">✎</span>Draw a path</button>
+      <button class="fb-mode on" data-mode="path"><span class="i">⋯</span>Trace a path</button>
       <button class="fb-mode" data-mode="pin"><span class="i">◍</span>Drop a pin</button>
       <button class="fb-mode" data-mode="comment"><span class="i">✦</span>Just comment</button>
     </div>
     <div id="fbMapWrap">
       <div id="fbmap" role="application" aria-label="Map — tap to draw your path or place a pin"></div>
-      <div class="fb-maphint" id="fbHint">Tap the map to add points along the path. Tap ✓ when done.</div>
+      <div class="fb-maphint" id="fbHint">Tap the map to drop points — each tap adds a corner and they join into a path. Undo removes the last.</div>
       <div class="fb-drawtools">
         <button id="fbUndo" type="button">Undo</button>
         <button id="fbClear" type="button">Clear</button>
       </div>
     </div>
     <form class="fb-form" id="fbForm">
-      <label class="fb-field"><span>What's the update?</span>
+      <label class="fb-field"><span>Comments</span>
         <textarea id="fbNote" maxlength="2000" rows="3" required placeholder="e.g. New connector path along the canal, not on the map yet."></textarea>
       </label>
       <div class="fb-field">
-        <span>Rate this stretch (optional)</span>
+        <span>Rate Cycling Buddy SG (optional)</span>
         <div class="fb-stars" id="fbStars" role="radiogroup" aria-label="Rating out of 5"></div>
       </div>
       <label class="fb-field"><span>Name to credit (optional)</span>
