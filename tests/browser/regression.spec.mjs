@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { openArtifact } from '../helpers/app-fixture.mjs';
+import { openArtifact, TEST_STYLE } from '../helpers/app-fixture.mjs';
+
+// The feedback page is a separate document; set up the same deterministic basemap and open it.
+async function openFeedback(page) {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.route('https://tiles.openfreemap.org/styles/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TEST_STYLE) }));
+  await page.route('**/favicon.ico', route => route.fulfill({ status: 204, body: '' }));
+  await page.goto('/feedback.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => { try { return Boolean(map.getSource('draw')); } catch { return false; } });
+  return errors;
+}
 
 test('loads all critical layers, supports visibility controls, and restores them after a theme change', async ({ page }) => {
   const errors = await openArtifact(page);
@@ -470,5 +482,62 @@ test('keeps the responsive shell inside the viewport and keyboard-closes modal c
   await expect(page.locator('#sheet')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
   await expect(page.locator('#sheet')).not.toHaveClass(/open/);
+  expect(errors).toEqual([]);
+});
+
+test('feedback page draws a path and submits it live for review, showing a contribution card', async ({ page }) => {
+  const errors = await openFeedback(page);
+  await expect(page.locator('h1')).toHaveText('Feedback');
+  await page.route('**/api/feedback', route => route.request().method() === 'POST'
+    ? route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":"srv1","ok":true,"status":"pending"}' })
+    : route.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' }));
+  await page.evaluate(() => { map.fire('click', { lngLat: { lng: 103.85, lat: 1.30 } }); map.fire('click', { lngLat: { lng: 103.86, lat: 1.31 } }); });
+  await expect.poll(() => page.evaluate(() => pts.length)).toBe(2);
+  await expect.poll(() => page.evaluate(() => map.getSource('draw')._data.features.length)).toBeGreaterThan(0);
+  await page.fill('#fbNote', 'New canal connector, not on the map yet');
+  await page.fill('#fbName', 'TestRider');
+  await page.click('#fbSubmit');
+  await expect(page.locator('#fbCard')).toBeVisible();
+  await expect(page.locator('#fbStatus')).toContainText('Sent for review');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'))).toHaveLength(0); // sent, not queued
+  await page.click('#fbCardDone');
+  await expect(page.locator('#fbCard')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('feedback page queues a comment on the device when the service is unreachable', async ({ page }) => {
+  await openFeedback(page);
+  await page.route('**/api/feedback', route => route.request().method() === 'POST' ? route.abort()
+    : route.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' }));
+  await page.click('.fb-mode[data-mode="comment"]');
+  await expect(page.locator('#fbMapWrap')).toHaveClass(/comment/);
+  await page.fill('#fbNote', 'Love this map, thank you');
+  await page.click('#fbSubmit');
+  await expect(page.locator('#fbStatus')).toContainText('saved on your device');
+  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem('cbsg.fbqueue') || '[]'));
+  expect(queued[0].kind).toBe('comment');
+  expect(queued[0].geometry).toBeNull();
+  expect('device' in queued[0]).toBe(false);
+  // No console-error assertion here: this test deliberately fails the network request, and the
+  // resulting console message is browser-specific noise. The queue behaviour above is the real check.
+});
+
+test('community feed renders approved items as text (never HTML) and records a per-device vote', async ({ page }) => {
+  const errors = await openFeedback(page);
+  const item = { id: 'f1', createdAt: Date.now() - 3600000, kind: 'path', geometry: null, note: 'Nice <img src=x onerror=alert(1)> canal path', rating: null, contributor: '<b>Rider</b>' };
+  await page.route('**/api/feedback', route => route.request().method() === 'GET'
+    ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [item] }) })
+    : route.fulfill({ status: 201, contentType: 'application/json', body: '{"ok":true}' }));
+  let voteBody = null;
+  await page.route('**/api/feedback/*/vote', route => { voteBody = route.request().postData(); route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }); });
+  await page.click('#tabFeed');
+  const card = page.locator('#fbList .fb-fcard').first();
+  await expect(card).toBeVisible();
+  await expect(page.locator('#fbList img')).toHaveCount(0);         // stored text inserted via textContent → no element parsed out
+  await expect(card.locator('.note')).toContainText('Nice');
+  await expect(card.locator('.who')).toHaveText('<b>Rider</b>');    // handle shown literally, not as bold
+  await card.locator('.fb-vote').click();
+  await expect(card.locator('.fb-vote')).toContainText('Thanks');
+  expect(voteBody).toContain('device');
   expect(errors).toEqual([]);
 });

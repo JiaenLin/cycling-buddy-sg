@@ -1,0 +1,17 @@
+name = "cbsg-feedback"
+main = "index.mjs"
+compatibility_date = "2025-01-01"
+
+# D1 database binding. Create it once, then paste the returned database_id here:
+#   wrangler d1 create cbsg-feedback
+[[d1_databases]]
+binding = "DB"
+database_name = "cbsg-feedback"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# The site origin allowed to call this Worker (CORS). Set to your preview/prod origin.
+ALLOW_ORIGIN = "https://jiaenlin.github.io"
+
+# ADMIN_KEY is a secret, NOT a var — set it with:
+#   wrangler secret put ADMIN_KEY
