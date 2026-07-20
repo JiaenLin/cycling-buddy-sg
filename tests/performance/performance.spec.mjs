@@ -47,7 +47,7 @@ test('Pixel 7 Fast 4G profile stays within startup, interaction, routing and Cor
   });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   const coldRoute = await page.evaluate(async () => {
     const start = performance.now();
     handleRouteClick([103.7859, 1.4370]);
