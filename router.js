@@ -70,6 +70,8 @@
   // "cycling path" = cycleway/path/track or a flagged park connector; roads(3,4,5,7,8,9)=car way; 2=footway
   const isCyclingEdge = e => (e.cls===0 || e.cls===1 || e.cls===6 || e.pcn===1);
   const kindOf = (cls,pcn) => (cls===0||cls===1||cls===6||pcn) ? 'cycling' : (cls===2 ? 'foot' : 'road');
+  // low-traffic roads (living/residential/service) ride very differently from tertiary+ through-roads
+  const isQuietRoad = cls => (cls===3||cls===4||cls===5);
 
   function route(start,end,opts){
     if(!loaded) return null;
@@ -77,7 +79,7 @@
     const s=nearestNode(start), t=nearestNode(end);
     if(!s||!t) return null;
     if(s.dist>MAX_SNAP || t.dist>MAX_SNAP) return null;   // tap has no nearby routable path (offshore/out-of-coverage)
-    if(s.i===t.i) return {coords:[NODES[s.i].slice()], legs:[], meters:0, pcnMeters:0, cyclingMeters:0, roadMeters:0, footMeters:0, cyclingPct:0, hasCarWay:false, directions:[], snapStart:s, snapEnd:t, ok:true};
+    if(s.i===t.i) return {coords:[NODES[s.i].slice()], legs:[], meters:0, pcnMeters:0, cyclingMeters:0, roadMeters:0, footMeters:0, quietRoadMeters:0, busyRoadMeters:0, cyclingPct:0, hasCarWay:false, directions:[], snapStart:s, snapEnd:t, ok:true};
     const goal=NODES[t.i], N=NODES.length;
     const g=new Float64Array(N).fill(Infinity);
     const cameFrom=new Int32Array(N).fill(-1);
@@ -101,12 +103,12 @@
       }
     }
     if(!found) return null;
-    const edgesRev=[]; let n=t.i, meters=0, pcnMeters=0, cyclingMeters=0, roadMeters=0, footMeters=0;
+    const edgesRev=[]; let n=t.i, meters=0, pcnMeters=0, cyclingMeters=0, roadMeters=0, footMeters=0, quietRoadMeters=0, busyRoadMeters=0;
     while(n!==s.i){
       const cls=cameCls[n], pcn=cameuPcn[n], L=cameLen[n], kind=kindOf(cls,pcn);
       edgesRev.push({geom:cameGeom[n], kind});
       meters+=L; if(pcn)pcnMeters+=L;
-      if(kind==='cycling')cyclingMeters+=L; else if(kind==='road')roadMeters+=L; else footMeters+=L;
+      if(kind==='cycling')cyclingMeters+=L; else if(kind==='road'){ roadMeters+=L; if(isQuietRoad(cls))quietRoadMeters+=L; else busyRoadMeters+=L; } else footMeters+=L;
       const p=cameFrom[n]; if(p<0) break; n=p;
     }
     edgesRev.reverse();
@@ -118,7 +120,7 @@
       else legs.push({kind, coords:seg.map(c=>c.slice())});
     }
     const cyclingPct = meters?cyclingMeters/meters:0;
-    return {coords, legs, meters, pcnMeters, cyclingMeters, roadMeters, footMeters, cyclingPct, hasCarWay:roadMeters>0,
+    return {coords, legs, meters, pcnMeters, cyclingMeters, roadMeters, footMeters, quietRoadMeters, busyRoadMeters, cyclingPct, hasCarWay:roadMeters>0,
             directions:directionsFrom(coords), snapStart:s, snapEnd:t, ok:true};
   }
 
@@ -133,6 +135,23 @@
     for(const c of cands){ if(c.cyclingPct>=0.70 && (!bal || c.meters<bal.meters)) bal=c; }
     if(!bal) bal=mx;
     return {max:mx, balanced:bal};
+  }
+
+  // Three labelled options for the planner, deduped when they coincide. best = maximum cycling-path
+  // coverage (the recommendation); fastest = most direct; balanced = short but still mostly on paths.
+  function routeThree(start,end){
+    const mults=[0.4,0.7,1,1.6,2.6,4,7,12], cands=[];
+    for(const m of mults){ const r=route(start,end,{ncm:m}); if(r&&r.meters>0){ r.cyclingPct=r.cyclingMeters/r.meters; cands.push(r); } }
+    if(!cands.length){ const r=route(start,end); return r?[{key:'best',label:'Best coverage',route:r}]:null; }
+    const best=cands.reduce((a,c)=> (c.cyclingPct>a.cyclingPct+1e-4 || (Math.abs(c.cyclingPct-a.cyclingPct)<=1e-4 && c.meters<a.meters)) ? c : a);
+    const fastest=cands.reduce((a,c)=> c.meters<a.meters-1e-3 ? c : a);
+    let balanced=null;
+    for(const c of cands){ if(c.cyclingPct>=0.70 && c!==best && c!==fastest && (!balanced || c.meters<balanced.meters)) balanced=c; }
+    const same=(a,b)=> !!a && !!b && Math.abs(a.meters-b.meters)<40 && Math.abs(a.cyclingPct-b.cyclingPct)<0.02;
+    const out=[{key:'best',label:'Best coverage',route:best}];
+    if(balanced && !same(balanced,best)) out.push({key:'balanced',label:'Balanced',route:balanced});
+    if(!same(fastest,best) && !out.some(o=>same(o.route,fastest))) out.push({key:'fastest',label:'Fastest',route:fastest});
+    return out;
   }
 
   const COMPASS=['N','NE','E','SE','S','SW','W','NW'];
@@ -157,6 +176,6 @@
     return dirs;
   }
 
-  const Router={ load, route, routeTwo, nearestNode, MAX_SNAP, get loaded(){return loaded;}, get size(){return NODES.length;} };
+  const Router={ load, route, routeTwo, routeThree, nearestNode, MAX_SNAP, get loaded(){return loaded;}, get size(){return NODES.length;} };
   if(typeof module!=='undefined' && module.exports) module.exports=Router; else global.Router=Router;
 })(typeof self!=='undefined'?self:this);

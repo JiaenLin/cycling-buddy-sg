@@ -57,7 +57,8 @@ test('plans a fixed route, exposes the road warning, and reports missing routing
     handleRouteClick([103.9040, 1.4043]);
   });
   await expect(page.locator('#rtOptions')).toBeVisible();
-  await expect(page.locator('#rtOptions .rt-opt')).toHaveCount(2);
+  await expect(page.locator('#rtOptions .rt-rec')).toHaveCount(1);
+  await expect(page.locator('#rtOptions .rt-rec-eyebrow')).toContainText('Recommended');
   await expect(page.locator('#rtDirs')).toBeVisible();
   await expect(page.locator('#rtDirs .rt-step').last()).toContainText('Arrive at destination');
   await expect(page.locator('#rtNotice')).toBeVisible();
@@ -79,7 +80,7 @@ test('plans a fixed route, exposes the road warning, and reports missing routing
   await context.close();
 });
 
-test('keeps a planned route through stray taps, drag-edits endpoints, and only clears on demand', async ({ page }) => {
+test('keeps a planned route through stray taps and drag-edits, clears on Clear and on exit', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();
   await page.evaluate(() => {
@@ -101,14 +102,15 @@ test('keeps a planned route through stray taps, drag-edits endpoints, and only c
   await expect.poll(() => page.evaluate(() => Boolean(routeResult) && routeResult.meters > 0)).toBe(true);
   await expect(page.locator('#rtOptions')).toBeVisible();
 
-  // 3. Closing the planner keeps the route drawn on the map.
-  await page.getByRole('button', { name: 'Exit route planning' }).click();
-  expect(await page.evaluate(() => Boolean(routeResult))).toBe(true);
-  await expect.poll(() => page.evaluate(() => map.querySourceFeatures('route').length)).toBeGreaterThan(0);
+  // 3. Clear route resets the plan while the planner stays open.
+  await page.getByRole('button', { name: 'Clear route' }).click();
+  expect(await page.evaluate(() => routeResult)).toBeNull();
+  await expect.poll(() => page.evaluate(() => map.querySourceFeatures('route').length)).toBe(0);
 
-  // 4. Clear is the only reset.
-  await page.getByRole('button', { name: 'Plan a route' }).click();
-  await page.getByRole('button', { name: 'Clear' }).click();
+  // 4. Toggling the planner off wipes the route and returns to the map (v26: "off" = clean map).
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await page.getByRole('button', { name: 'Exit route planning' }).click();
   expect(await page.evaluate(() => routeResult)).toBeNull();
   await expect.poll(() => page.evaluate(() => map.querySourceFeatures('route').length)).toBe(0);
   expect(errors).toEqual([]);
@@ -117,8 +119,8 @@ test('keeps a planned route through stray taps, drag-edits endpoints, and only c
 test('hides route controls until a route exists and reports no nearby path for far taps', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();
-  // Reverse/Clear/GPX, the road notice, the key and the options must not leak before a route exists.
-  for (const id of ['#rtRevBtn', '#rtClrBtn', '#rtGpxBtn', '#rtKey', '#rtNotice', '#rtOptions'])
+  // The action bar, Clear, GPX, the road notice and the route options must not leak before a route exists.
+  for (const id of ['#rtActionBar', '#rtClrBtn', '#rtGpxBtn', '#rtNotice', '#rtOptions'])
     await expect(page.locator(id)).toBeHidden();
   // A tap far from any routable path reports no nearby path, not a misleading route.
   await page.evaluate(() => { handleRouteClick([103.8000, 1.3000]); handleRouteClick([104.6000, 1.2000]); });
@@ -212,11 +214,53 @@ test('offline postcode search resolves a Singapore postcode to a destination', a
   expect(errors).toEqual([]);
 });
 
+test('offers a recommended route plus labelled, expandable alternatives, and swaps endpoints', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect(page.locator('#rtOptions .rt-rec-eyebrow')).toContainText('Best coverage');
+  // alternatives start collapsed; expanding reveals labelled cards
+  const toggle = page.getByRole('button', { name: /View \d+ alternative/ });
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator('#rtAltList .rt-alt').first()).toBeVisible();
+  // choosing an alternative changes the active route
+  const before = await page.evaluate(() => routeSel);
+  await page.locator('#rtAltList .rt-alt').first().click();
+  await expect.poll(() => page.evaluate(() => routeSel)).not.toBe(before);
+  // swap flips start and destination and re-routes in place
+  const startLng = await page.evaluate(() => routeStart[0]);
+  await page.getByRole('button', { name: 'Swap start and destination' }).click();
+  await expect.poll(() => page.evaluate((s) => Math.abs(routeStart[0] - s) > 1e-9, startLng)).toBe(true);
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult) && routeResult.meters > 0)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('saved chips re-resolve a name reference to a destination and render stored names as text, never HTML', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
+  // Saved entries store a re-resolvable reference (name + kind + key), never coordinates.
+  const rv = await page.evaluate(() => POI[0].name);
+  await page.evaluate((rv) => localStorage.setItem('cbsg.saved',
+    JSON.stringify([{ name: '<img src=x onerror=alert(1)>' + rv, rk: 'poi', rv }])), rv);
+  await page.getByRole('button', { name: 'Plan a route' }).click();
+  const chip = page.locator('#rtChips .rt-chip').first();
+  await expect(chip).toBeVisible();
+  // the stored name is inserted as text (textContent), so no element is parsed out of it
+  await expect(page.locator('#rtChips img')).toHaveCount(0);
+  await expect(chip.locator('.t')).toContainText(rv);
+  await chip.click();   // re-resolves the reference to coordinates and sets the destination
+  await expect.poll(() => page.evaluate(() => Boolean(routeEnd))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('renders a shareable route image (PNG)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a route' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  // Share/GPX/Save live in the ⋯ overflow menu now.
+  await page.getByRole('button', { name: 'More route actions' }).click();
   await expect(page.locator('#rtImgBtn')).toBeVisible();
   const head = await page.evaluate(() => drawRideCard(routeResult.coords, { subtitle: 't', big: '21 km', line: 'test' }).toDataURL('image/png').slice(0, 22));
   expect(head).toContain('data:image/png');
