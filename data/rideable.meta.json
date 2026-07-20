@@ -3,9 +3,9 @@
   "licence": "ODbL 1.0 (OpenStreetMap contributors)",
   "description": "Cycling paths usable for routing that are not covered by the LTA/NParks display layers; rendered in the cycling-path colour so the map matches what the router can ride.",
   "scope": "infra",
-  "features": 1042,
-  "km": 226,
-  "tolerance_m": 4,
-  "coverageGrid_m": 22,
+  "coverageTolerance_m": 25,
+  "features": 1867,
+  "km": 318,
+  "simplify_m": 4,
   "builtFrom": "data/graph.json"
 }
