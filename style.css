@@ -186,7 +186,10 @@ body{
 .dk-reclink:active{transform:scale(.98)}
 /* weather row: a header (icon · condition · refresh) over three evenly-spread stats; the coloured
    left rail carries the rain go/no-go severity */
-.wx-merged{flex-direction:column;align-items:stretch;gap:10px;border-left:3px solid var(--line)}
+/* .wx-card.wx-merged (not bare .wx-merged): the base .wx-card rule is later in the file and equal
+   specificity, so a bare selector loses align-items and the column silently centres at content
+   width — leaving empty gutters and cramming UV/PM2.5 onto the divider. */
+.wx-card.wx-merged{flex-direction:column;align-items:stretch;gap:10px;border-left:3px solid var(--line)}
 .wx-merged[data-sev="safe"]{border-left-color:var(--wx-safe)}
 .wx-merged[data-sev="rain"]{border-left-color:var(--wx-rain)}
 .wx-merged[data-sev="heavy"]{border-left-color:var(--wx-heavy)}
