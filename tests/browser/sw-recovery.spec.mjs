@@ -84,7 +84,8 @@ test.describe('forward-versioned service-worker recovery drill', () => {
     await page.reload();
     await page.evaluate(() => navigator.serviceWorker.ready);
     const oldCaches = await page.evaluate(() => caches.keys());
-    expect(oldCaches).toContain('cbsg-drill-old-shell');
+    // Caches are namespaced per channel; served from the drill root the worker resolves to 'prod'.
+    expect(oldCaches).toContain('cbsg-drill-old-prod-shell');
 
     const requestUpdate = () => page.evaluate(async () => {
       const registration = await navigator.serviceWorker.getRegistration();
@@ -111,7 +112,7 @@ test.describe('forward-versioned service-worker recovery drill', () => {
     });
     expect(afterBad.active).toBe(true);
     expect(afterBad.waiting).toBe(false);
-    expect(afterBad.caches).toContain('cbsg-drill-old-shell');
+    expect(afterBad.caches).toContain('cbsg-drill-old-prod-shell');
 
     state.version = 'cbsg-drill-recovery';
     state.failAsset = null;
@@ -146,8 +147,8 @@ test.describe('forward-versioned service-worker recovery drill', () => {
     });
     expect(finalState.local).toBe('preserve-me');
     expect(finalState.dbValue).toBe('preserve-me');
-    expect(finalState.caches).toContain('cbsg-drill-recovery-shell');
-    expect(finalState.caches).not.toContain('cbsg-drill-old-shell');
-    expect(finalState.caches).not.toContain('cbsg-drill-bad-shell');
+    expect(finalState.caches).toContain('cbsg-drill-recovery-prod-shell');
+    expect(finalState.caches).not.toContain('cbsg-drill-old-prod-shell');
+    expect(finalState.caches).not.toContain('cbsg-drill-bad-prod-shell');
   });
 });
