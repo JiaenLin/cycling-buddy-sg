@@ -41,9 +41,9 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await page.evaluate(() => loadWeather(true));
   await expect(page.locator('#wxRow')).toBeVisible();
   await expect(page.locator('#wxMain')).toHaveText('Thundery Showers');
-  // the advisory is merged into the weather row now: severity colours the rail + verdict word
+  // the row is compact now: severity colours the left rail, and the rain window is a chip (no repeated verdict)
   await expect(page.locator('#wxRow')).toHaveAttribute('data-sev', 'storm');
-  await expect(page.locator('#wxRow .wx-go')).toHaveText('Thundery — hold off');
+  await expect(page.locator('#wxMetrics .wx-tok').first()).toHaveText('til 8:00 PM');
   expect(errors).toEqual([]);
 
   const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light' });
@@ -59,6 +59,23 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await expect(failurePage.locator('#wxRow')).toBeHidden();   // no forecast → the whole merged row (verdict included) stays hidden
   expect(failureResponses).toContain(503);
   await context.close();
+});
+
+test('weather row folds in live temperature, UV and PM2.5 as compact colour-coded chips', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await expect(page.locator('#wxRow')).toBeVisible();
+  // override the fixture's forecast wildcard for the three real-time endpoints with realistic shapes
+  await page.route('**/air-temperature', route => route.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ code: 0, data: { stations: [{ id: 'S1', labelLocation: { latitude: 1.30, longitude: 103.85 } }], readings: [{ data: [{ stationId: 'S1', value: 31 }] }] } }) }));
+  await page.route('**/uv', route => route.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ code: 0, data: { records: [{ index: [{ hour: 'now', value: 9 }] }] } }) }));
+  await page.route('**/pm25', route => route.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ code: 0, data: { regionMetadata: [{ name: 'central', labelLocation: { latitude: 1.30, longitude: 103.85 } }], items: [{ readings: { pm25_one_hourly: { central: 70 } } }] } }) }));
+  await page.evaluate(() => loadEnv(true));
+  await expect(page.locator('#wxMain')).toContainText('31°C');                                   // temperature folds into the main line
+  await expect(page.locator('#wxMetrics .wx-tok[data-tone="bad"]').filter({ hasText: 'UV 9' })).toBeVisible();     // UV 9 = very high
+  await expect(page.locator('#wxMetrics .wx-tok[data-tone="warn"]').filter({ hasText: 'PM2.5 70' })).toBeVisible(); // 70 µg/m³ = elevated
+  expect(errors).toEqual([]);
 });
 
 test('plans a fixed route, exposes the road warning, and reports missing routing data', async ({ page, browser }) => {
@@ -326,7 +343,7 @@ test('planner search inputs are ≥16px so iOS Safari does not zoom on focus', a
   expect(errors).toEqual([]);
 });
 
-test('GO folds the planner and turns the heading arrow on', async ({ page }) => {
+test('GO folds the planner and auto-activates facing-direction (compass + heading arrow)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.evaluate(() => {
     window.__oriStarted = false;
@@ -341,6 +358,8 @@ test('GO folds the planner and turns the heading arrow on', async ({ page }) => 
   await expect(page.locator('#dock')).toHaveClass(/collapsed/);            // planner folds to a peek
   await expect.poll(() => page.evaluate(() => navActive)).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__oriStarted)).toBe(true);   // heading arrow armed on GO
+  await expect.poll(() => page.evaluate(() => headingMode)).toBe(true);           // facing-direction (compass follow) activates automatically
+  await expect(page.locator('#headingBtn')).toHaveClass(/active/);
   expect(errors).toEqual([]);
 });
 

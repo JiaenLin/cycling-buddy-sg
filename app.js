@@ -397,7 +397,7 @@ function onPos(e){
   if(pendingStartLoc){ pendingStartLoc=false; if(routeMode && !routeStart) useCurrentAsStart(); }  // first ⌖ tap resolves once the fix lands
   computeNearest(); updateNearUI(); refreshNearestSource();
   computeNearestRack(); updateRackUI();
-  loadWeather(); updateWxUI();   // forecast for the area you're now in (throttled fetch)
+  loadWeather(); loadEnv(); updateWxUI();   // forecast + live readings for the area you're now in (throttled)
   if(recording) pushTrack(user, e.timestamp);
   if(headingMode){ camTarget.center=[user.lng,user.lat]; const b=currentHeading(); if(b!=null) camTarget.bearing=b; }
   if(navActive) liveGuidance();
@@ -555,16 +555,71 @@ function wxGoLabel(sev){
     default:      return {label:'Good to ride', sev:'safe'};   // clear / cloud / wind
   }
 }
+// ---------- live environment readings (NEA real-time · air temperature / UV / PM2.5) ----------
+// Same CORS-open host as the forecast; the service worker network-firsts it, so these degrade to the
+// last snapshot offline. Raw readings (with coords) are stored; the nearest-to-rider is picked at render.
+const ENV_URLS={ temp:'https://api-open.data.gov.sg/v2/real-time/api/air-temperature',
+                 uv:'https://api-open.data.gov.sg/v2/real-time/api/uv',
+                 pm25:'https://api-open.data.gov.sg/v2/real-time/api/pm25' };
+let ENV=null, envLoading=null;
+try{ const s=JSON.parse(localStorage.getItem('env')||'null'); if(s) ENV=s; }catch(e){}
+function parseTemp(j){
+  if(!j||j.code!==0||!j.data) return null;
+  const st={}; (j.data.stations||[]).forEach(s=>{ const L=s.labelLocation||{}; if(L.latitude!=null) st[s.id]={lat:L.latitude,lng:L.longitude}; });
+  const rd=((j.data.readings||[])[0]||{}).data||[]; const out=[];
+  for(const r of rd){ const c=st[r.stationId]; if(c&&Number.isFinite(r.value)) out.push({lat:c.lat,lng:c.lng,value:r.value}); }
+  return out.length?out:null;
+}
+function parseUv(j){ if(!j||j.code!==0||!j.data) return null; const idx=(((j.data.records||[])[0]||{}).index)||[]; return idx.length&&Number.isFinite(idx[0].value)?idx[0].value:null; }
+function parsePm(j){
+  if(!j||j.code!==0||!j.data) return null;
+  const meta={}; (j.data.regionMetadata||[]).forEach(m=>{ const L=m.labelLocation||{}; if(L.latitude!=null) meta[m.name]={lat:L.latitude,lng:L.longitude}; });
+  const rd=(((j.data.items||[])[0]||{}).readings||{}).pm25_one_hourly||{}; const out=[];
+  for(const name in rd){ const c=meta[name]; if(c&&Number.isFinite(rd[name])) out.push({lat:c.lat,lng:c.lng,value:rd[name]}); }
+  return out.length?out:null;
+}
+function loadEnv(force){
+  if(!force && ENV && (Date.now()-(ENV.at||0))<WX_TTL) return Promise.resolve(ENV);
+  if(envLoading) return envLoading;
+  const get=u=>fetch(u,{headers:{Accept:'application/json'}}).then(r=>r.ok?r.json():null).catch(()=>null);
+  envLoading=Promise.all([get(ENV_URLS.temp),get(ENV_URLS.uv),get(ENV_URLS.pm25)]).then(([t,u,p])=>{
+    const next=Object.assign({},ENV);
+    const temp=parseTemp(t); if(temp) next.temp=temp;
+    const uv=parseUv(u); if(uv!=null) next.uv=uv;                 // null overnight — keep the last daytime value
+    const pm=parsePm(p); if(pm) next.pm25=pm;
+    next.at=Date.now();
+    if(temp||uv!=null||pm){ ENV=next; try{ localStorage.setItem('env', JSON.stringify(ENV)); }catch(e){} }
+    envLoading=null; updateWxUI(); return ENV;
+  }).catch(()=>{ envLoading=null; return ENV; });
+  return envLoading;
+}
+function nearReading(arr){   // nearest reading to the rider, or the islandwide average when unlocated
+  if(!arr||!arr.length) return null;
+  if(!user){ let s=0; for(const a of arr) s+=a.value; return s/arr.length; }
+  const mLat=110540, mLng=111320*Math.cos(user.lat*D2R); let best=Infinity,b=null;
+  for(const a of arr){ const dx=(a.lng-user.lng)*mLng, dy=(a.lat-user.lat)*mLat, d=dx*dx+dy*dy; if(d<best){best=d;b=a;} }
+  return b?b.value:null;
+}
+const uvBand=v=>v>=8?'bad':v>=3?'warn':'good';        // 0-2 low · 3-7 moderate–high · 8+ very high+
+const pmBand=v=>v>150?'bad':v>55?'warn':'good';       // NEA 1-hour PM2.5 bands (µg/m³)
 function updateWxUI(){
   const row=$('wxRow');
   if(!WX||!WX.areas.length){ row.hidden=true; updatePeek(); return; }
   const cond = user ? nearestForecast(user.lat,user.lng).forecast : wxModal();
-  const place = user ? nearestForecast(user.lat,user.lng).area : 'Islandwide';
   const info=wxInfo(cond), end=wxEndLabel(), go=wxGoLabel(info.sev);
-  $('wxIc').textContent=info.emoji; $('wxMain').textContent=cond;
-  // weather + verdict + validity on one line; the verdict word and the card's left rail take the sev colour
-  const bits=[place]; if(end) bits.push('until '+end); if(wxIsStale()) bits.push('offline');
-  $('wxSub').innerHTML = `<b class="wx-go">${esc(go.label)}</b> · ${esc(bits.join(' · '))}`;
+  const temp = ENV ? nearReading(ENV.temp) : null;
+  $('wxIc').textContent=info.emoji;
+  $('wxMain').textContent = cond + (temp!=null ? ' · '+Math.round(temp)+'°C' : '');
+  // compact metric chips: rain window (when wet) + UV + PM2.5; the card's left rail carries the go/no-go colour
+  const toks=[];
+  if(['rain','heavy','storm'].includes(info.sev) && end) toks.push(`<span class="wx-tok" data-tone="${info.sev==='rain'?'warn':'bad'}">til ${esc(end)}</span>`);
+  if(ENV){
+    if(ENV.uv!=null) toks.push(`<span class="wx-tok" data-tone="${uvBand(ENV.uv)}">UV ${Math.round(ENV.uv)}</span>`);
+    const pm=nearReading(ENV.pm25); if(pm!=null) toks.push(`<span class="wx-tok" data-tone="${pmBand(pm)}">PM2.5 ${Math.round(pm)}</span>`);
+  }
+  if(wxIsStale()) toks.push('<span class="wx-tok">offline</span>');
+  if(!toks.length) toks.push(`<span class="wx-tok" data-tone="${go.sev==='safe'?'good':''}">${esc(go.label)}</span>`);   // verdict fallback until readings land
+  $('wxMetrics').innerHTML = toks.join('');
   row.dataset.sev=go.sev; row.hidden=false;
   updatePeek();
 }
@@ -660,6 +715,7 @@ $('wxBtn').addEventListener('click', ()=>{
 });
 $('wxRefresh').addEventListener('click', ()=>{
   const b=$('wxRefresh'); b.classList.add('spin');
+  loadEnv(true);
   loadWeather(true).finally(()=>setTimeout(()=>b.classList.remove('spin'),600));
 });
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && navigator.onLine && (!WX||(Date.now()-(WX.at||0))>WX_TTL)) loadWeather(); });
@@ -1021,18 +1077,18 @@ function camLoop(){
   updateCompassIcon();
   camRAF=requestAnimationFrame(camLoop);
 }
-function enterHeading(){
+function enterHeading(silent){   // silent: GO drives this, so it owns the toast instead
   headingMode=true; navStage=1;
   const btn=$('headingBtn'); btn.classList.add('active'); btn.setAttribute('aria-pressed','true');
   map.touchZoomRotate.disableRotation();               // two-finger = zoom only while following; avoids fighting the compass
   if(!locActive) geo.trigger();                          // ensure GPS + the user dot/heading beam
-  requestOrientation().then(ok=>{ if(ok) startOrientation(); else toast('Motion access off — following GPS heading'); });
+  requestOrientation().then(ok=>{ if(ok) startOrientation(); else if(!silent) toast('Motion access off — following GPS heading'); });
   const b=currentHeading();
   camTarget.center = user ? [user.lng,user.lat] : map.getCenter().toArray();
   camTarget.bearing = (b!=null ? b : map.getBearing());
   camTarget.zoom = Math.max(map.getZoom(), 16.4);
   if(!camRAF) camRAF=requestAnimationFrame(camLoop);
-  toast(user ? 'Compass on — the map turns to the way you face' : 'Compass on — finding your location…');
+  if(!silent) toast(user ? 'Compass on — the map turns to the way you face' : 'Compass on — finding your location…');
 }
 function exitHeading(reset){
   if(!headingMode) return;
@@ -1070,7 +1126,7 @@ function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
   routeMode=true; map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); updateGpsStatus();
+  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); loadEnv(); updateGpsStatus();
   if(routeOptions){ renderRoutes(routeOptions); selectRoute(routeSel,false); }
   else resetRoutePanel();   // start is an explicit choice now (⌖ current location / search / tap) — no silent auto-fill
   updateFieldStates();
@@ -1315,13 +1371,12 @@ function updateFabStack(){ const f=$('fabStack'); if(f) f.classList.toggle('ridi
 function startNav(){
   if(!routeResult) return;
   navActive=true; offRouteCount=0; updateFabStack();
-  if(!locActive) geo.trigger();
-  requestOrientation().then(ok=>{ if(ok) startOrientation(); });   // GO turns the heading arrow on for the ride
+  if(!headingMode) enterHeading(true);   // GO auto-activates facing-direction: compass follow + heading arrow
   closeMenu(); setDock(true);                                      // fold the planner so the map + turn banner lead
   $('rtGoBtn').textContent='End ride';
-  setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance();
+  setNavBanner('Starting…',''); toast('Navigation on — map faces your heading'); if(user) liveGuidance();
 }
-function stopNav(){ navActive=false; updateFabStack(); const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
+function stopNav(){ navActive=false; updateFabStack(); if(headingMode) exitHeading(true); const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 // One search over the offline indexes — parks, MRT/LRT stations and 6-digit postcodes — shared by
 // the From and To fields. Scope is stated in the UI (#rtScope) so nothing feels silently missing.
@@ -1559,6 +1614,7 @@ syncThemeIcon();
 updateCompassIcon();
 updateWxUI();            // show last snapshot instantly (if any)
 loadWeather();          // then refresh in the background when online
+loadEnv();              // live air temp / UV / PM2.5 for the weather row
 // Draggable dock: pull the handle up to expand or down to collapse; a plain tap still toggles.
 (function(){
   const dock=$('dock'), handle=$('dockHandle');
