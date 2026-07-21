@@ -41,7 +41,9 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await page.evaluate(() => loadWeather(true));
   await expect(page.locator('#wxRow')).toBeVisible();
   await expect(page.locator('#wxMain')).toHaveText('Thundery Showers');
-  await expect(page.locator('#wxAdv')).toContainText('lightning risk');
+  // the advisory is merged into the weather row now: severity colours the rail + verdict word
+  await expect(page.locator('#wxRow')).toHaveAttribute('data-sev', 'storm');
+  await expect(page.locator('#wxRow .wx-go')).toHaveText('Thundery — hold off');
   expect(errors).toEqual([]);
 
   const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light' });
@@ -54,16 +56,14 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   });
   await openArtifact(failurePage, { weatherFailure: true });
   await failurePage.evaluate(() => loadWeather(true));
-  await expect(failurePage.locator('#wxRow')).toBeHidden();
-  await expect(failurePage.locator('#wxAdv')).toHaveAttribute('hidden', '');
-  await expect(failurePage.locator('#wxAdv')).toHaveText('');
+  await expect(failurePage.locator('#wxRow')).toBeHidden();   // no forecast → the whole merged row (verdict included) stays hidden
   expect(failureResponses).toContain(503);
   await context.close();
 });
 
 test('plans a fixed route, exposes the road warning, and reports missing routing data', async ({ page, browser }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => {
     handleRouteClick([103.7859, 1.4370]);
     handleRouteClick([103.9040, 1.4043]);
@@ -86,7 +86,7 @@ test('plans a fixed route, exposes the road warning, and reports missing routing
     }
   });
   await openArtifact(failurePage, { graphFailure: true });
-  await failurePage.getByRole('button', { name: 'Plan a route' }).click();
+  await failurePage.getByRole('button', { name: 'Plan a ride' }).click();
   await expect(failurePage.locator('#toast')).toContainText('Routing data isn’t available yet');
   expect(failureResponses).toContain(503);
   await context.close();
@@ -94,7 +94,7 @@ test('plans a fixed route, exposes the road warning, and reports missing routing
 
 test('keeps a planned route through stray taps and drag-edits, clears on Clear and on exit', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => {
     handleRouteClick([103.7859, 1.4370]);
     handleRouteClick([103.9040, 1.4043]);
@@ -130,7 +130,7 @@ test('keeps a planned route through stray taps and drag-edits, clears on Clear a
 
 test('hides route controls until a route exists and reports no nearby path for far taps', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   // The action bar, Clear, GPX, the road notice and the route options must not leak before a route exists.
   for (const id of ['#rtActionBar', '#rtClrBtn', '#rtGpxBtn', '#rtNotice', '#rtOptions'])
     await expect(page.locator(id)).toBeHidden();
@@ -144,7 +144,7 @@ test('navigation overview reveals route direction arrows on demand', async ({ pa
   const errors = await openArtifact(page);
   await expect.poll(() => page.evaluate(() => Boolean(map.getLayer('route-arrows')))).toBe(true);
   await expect.poll(() => page.evaluate(() => map.getLayoutProperty('route-arrows', 'visibility'))).toBe('none');
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
   await page.evaluate(() => setNavArrows(true));
@@ -175,7 +175,7 @@ test('records location updates and generates a local GPX file', async ({ page })
 
 test('live navigation guides along a route and reroutes when off it', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
   // start nav and feed a position on the route -> the guidance banner appears
@@ -199,7 +199,7 @@ test('live navigation guides along a route and reroutes when off it', async ({ p
 test('offline POI search sets a route destination by name', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   const q = await page.evaluate(() => POI[0].name.slice(0, 4).toLowerCase());
   await page.fill('#rtSearch', q);
   await expect(page.locator('#rtResults .rt-result').first()).toBeVisible();
@@ -211,7 +211,7 @@ test('offline POI search sets a route destination by name', async ({ page }) => 
 
 test('offline postcode search resolves a Singapore postcode to a destination', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   // the postcode index lazy-loads when the planner opens
   await page.waitForFunction(() => typeof POSTCODES !== 'undefined' && POSTCODES && POSTCODES.size > 1000);
   const pc = await page.evaluate(() => [...POSTCODES.keys()][0]);
@@ -228,7 +228,7 @@ test('offline postcode search resolves a Singapore postcode to a destination', a
 
 test('offers a recommended route plus labelled, expandable alternatives, and swaps endpoints', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect(page.locator('#rtOptions .rt-rec-eyebrow')).toContainText('Best coverage');
   // alternatives start collapsed (the #rtAltList carries the hidden attribute) and expand on tap
@@ -260,7 +260,7 @@ test('saved chips re-resolve a name reference to a destination and render stored
   const rv = await page.evaluate(() => POI[0].name);
   await page.evaluate((rv) => localStorage.setItem('cbsg.saved',
     JSON.stringify([{ name: '<img src=x onerror=alert(1)>' + rv, rk: 'poi', rv }])), rv);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   const chip = page.locator('#rtChips .rt-chip').first();
   await expect(chip).toBeVisible();
   // the stored name is inserted as text (textContent), so no element is parsed out of it
@@ -295,7 +295,7 @@ test('the heading arrow mirrors the location dot: stays in background, hides whe
 
 test('opening the planner does not auto-focus a field (no keyboard pop over the UI)', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await expect(page.locator('#rtFromRow')).toHaveClass(/glow/);   // glow guides instead of auto-focus
   const focusedId = await page.evaluate(() => document.activeElement && document.activeElement.id);
   expect(focusedId).not.toBe('rtFromSearch');
@@ -305,7 +305,7 @@ test('opening the planner does not auto-focus a field (no keyboard pop over the 
 
 test('the first ⌖ tap sets the start as soon as the location fix lands (no second tap)', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { user = null; geo.trigger = () => true; });   // no fix yet; stub the real geolocation request
   await page.getByRole('button', { name: 'Use my current location as the start' }).click();
   await expect.poll(() => page.evaluate(() => pendingStartLoc)).toBe(true);
@@ -318,7 +318,7 @@ test('the first ⌖ tap sets the start as soon as the location fix lands (no sec
 
 test('planner search inputs are ≥16px so iOS Safari does not zoom on focus', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   for (const id of ['#rtFromSearch', '#rtSearch']) {
     const size = await page.locator(id).evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     expect(size).toBeGreaterThanOrEqual(16);
@@ -334,7 +334,7 @@ test('GO folds the planner and turns the heading arrow on', async ({ page }) => 
     requestOrientation = () => Promise.resolve(true);
     geo.trigger = () => {};
   });
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
   await page.getByRole('button', { name: 'GO', exact: true }).click();
@@ -344,16 +344,34 @@ test('GO folds the planner and turns the heading arrow on', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
-test('the route button warns and keeps navigation instead of tearing it down mid-ride', async ({ page }) => {
+test('the FAB stack stays minimal until GO reveals Compass and Record', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await expect(page.getByRole('button', { name: 'Find my location' })).toBeVisible();  // Locate stays
+  await expect(page.locator('#fabStack #routeBtn')).toHaveCount(0);                     // route FAB moved into the dock
+  await expect(page.locator('#headingBtn')).toBeHidden();                              // Compass + Record wait for GO
+  await expect(page.locator('#recBtn')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Plan a ride' })).toBeVisible();        // the new dock CTA
+  await page.evaluate(() => { startOrientation = () => {}; requestOrientation = () => Promise.resolve(false); geo.trigger = () => {}; });
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
+  await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
+  await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
+  await page.getByRole('button', { name: 'GO', exact: true }).click();
+  await expect(page.locator('#headingBtn')).toBeVisible();
+  await expect(page.locator('#recBtn')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('leaving the planner mid-ride warns instead of tearing navigation down', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.evaluate(() => { startOrientation = () => {}; requestOrientation = () => Promise.resolve(false); geo.trigger = () => {}; });
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
   await page.getByRole('button', { name: 'GO', exact: true }).click();
   await expect.poll(() => page.evaluate(() => navActive)).toBe(true);
-  // tapping the route button during a ride must warn, not exit — GO mode, route-mode and the route stay
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  // exiting the planner (its X) during a ride must warn, not exit — GO mode, route-mode and the route stay
+  await page.evaluate(() => setDock(false));   // GO folds the dock; open it to reach the planner's close
+  await page.getByRole('button', { name: 'Exit route planning' }).click();
   await expect(page.locator('#toast')).toContainText('End your ride first');
   expect(await page.evaluate(() => navActive)).toBe(true);
   expect(await page.evaluate(() => routeMode)).toBe(true);
@@ -364,7 +382,7 @@ test('the route button warns and keeps navigation instead of tearing it down mid
 test('the planner guides start→destination: the active field glows and From accepts search', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   // start is unset → From glows, destination waits (dimmed)
   await expect(page.locator('#rtFromRow')).toHaveClass(/glow/);
   await expect(page.locator('#rtToRow')).toHaveClass(/await/);
@@ -383,7 +401,7 @@ test('the planner guides start→destination: the active field glows and From ac
 test('search includes MRT/LRT stations and labels the result scope', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => Array.isArray(POI) && POI.some(p => p.kind === 'mrt'));
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   const station = await page.evaluate(() => POI.find(p => p.kind === 'mrt').name); // e.g. "Admiralty MRT"
   await page.fill('#rtSearch', station.replace(/ MRT$/, '').slice(0, 6).toLowerCase());
   const row = page.locator('#rtResults .rt-result', { hasText: 'MRT' }).first();
@@ -397,7 +415,7 @@ test('search includes MRT/LRT stations and labels the result scope', async ({ pa
 test('saving a searched destination persists a coordinate-free reference (fixes silent no-op save)', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.waitForFunction(() => Array.isArray(POI) && POI.length > 50);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => handleRouteClick([103.8000, 1.3000]));  // set start by tap
   const name = await page.evaluate(() => POI.find(p => p.kind === 'park').name);
   await page.fill('#rtSearch', name.slice(0, 5).toLowerCase());
@@ -432,7 +450,7 @@ test('adds the OSM rideable gap-fill layer, matching and toggling with the cycli
 
 test('renders a shareable route image (PNG)', async ({ page }) => {
   const errors = await openArtifact(page);
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => { handleRouteClick([103.7859, 1.4370]); handleRouteClick([103.9040, 1.4043]); });
   await expect.poll(() => page.evaluate(() => Boolean(routeResult))).toBe(true);
   // Share/GPX/Save live in the ⋯ overflow menu now.

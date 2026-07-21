@@ -445,15 +445,9 @@ function computeNearest(){
   }
   nearest = bp ? {lng:bp[0], lat:bp[1], dist:Math.sqrt(best), loop:bl} : null;
 }
-function updateNearUI(){
-  if(!nearest){ $('nearDist').textContent='—'; $('nearSub').textContent='Tap ◎ to locate'; updatePeek(); return; }
-  const d=nearest.dist;
-  $('nearDist').textContent = d<1000 ? Math.round(d)+' m' : (d/1000).toFixed(2)+' km';
-  const nm = nearest.loop>=0 ? META.loops[nearest.loop].name : 'a park path';
-  const col = nearest.loop>=0 ? LOOP_COLORS[nearest.loop] : OTHER;
-  $('nearSub').innerHTML = `on <span class="dk-loop"><i style="background:${col}"></i>${esc(nm)}</span>`;
-  updatePeek();
-}
+// nearest-connector distance now surfaces only in the collapsed peek; formatter avoids a DOM round-trip
+function nearDistLabel(){ if(!nearest) return ''; const d=nearest.dist; return d<1000 ? Math.round(d)+' m' : (d/1000).toFixed(2)+' km'; }
+function updateNearUI(){ updatePeek(); }
 // Where can I actually leave the bike? The natural sibling of "nearest park connector".
 function computeNearestRack(){
   if(!user || !RACK_FEATURES.length || !racksVisible){ nearRack=null; return; }
@@ -550,19 +544,28 @@ function wxModal(){   // islandwide summary — safety-forward: most severe cond
   let k=null,m=-1; for(const x in c){ if(c[x]>m){m=c[x];k=x;} } return k;
 }
 function onWeather(){ updateWxUI(); refreshWxSource(); updateRouteWx(); if(wxVisible) wxCapUpdate(); }
+// A short go/no-go verdict for the merged weather row, keyed to the same severity the colours use.
+function wxGoLabel(sev){
+  switch(sev){
+    case 'storm': return {label:'Thundery — hold off', sev:'storm'};
+    case 'heavy': return {label:'Heavy rain — take care', sev:'heavy'};
+    case 'rain':  return {label:'Showers about', sev:'rain'};
+    case 'haze':  return {label:'Hazy air', sev:'haze'};
+    case 'mist':  return {label:'Misty out', sev:'mist'};
+    default:      return {label:'Good to ride', sev:'safe'};   // clear / cloud / wind
+  }
+}
 function updateWxUI(){
-  const row=$('wxRow'), adv=$('wxAdv');
-  if(!WX||!WX.areas.length){ row.hidden=true; adv.hidden=true; updatePeek(); return; }
+  const row=$('wxRow');
+  if(!WX||!WX.areas.length){ row.hidden=true; updatePeek(); return; }
   const cond = user ? nearestForecast(user.lat,user.lng).forecast : wxModal();
   const place = user ? nearestForecast(user.lat,user.lng).area : 'Islandwide';
-  const info=wxInfo(cond), end=wxEndLabel();
+  const info=wxInfo(cond), end=wxEndLabel(), go=wxGoLabel(info.sev);
   $('wxIc').textContent=info.emoji; $('wxMain').textContent=cond;
-  $('wxSub').textContent = place + (end?(' · until '+end):'') + (wxIsStale()?' · offline':'');
-  row.dataset.sev=info.sev; row.hidden=false;
-  const msg=WX_ADVICE[info.sev];
-  if(msg){ adv.textContent=msg; adv.dataset.sev=info.sev; adv.hidden=false; }
-  else if(info.sev==='clear'||info.sev==='cloud'||info.sev==='wind'){ adv.textContent='Clear right now — good to ride.'; adv.dataset.sev='safe'; adv.hidden=false; }
-  else adv.hidden=true;
+  // weather + verdict + validity on one line; the verdict word and the card's left rail take the sev colour
+  const bits=[place]; if(end) bits.push('until '+end); if(wxIsStale()) bits.push('offline');
+  $('wxSub').innerHTML = `<b class="wx-go">${esc(go.label)}</b> · ${esc(bits.join(' · '))}`;
+  row.dataset.sev=go.sev; row.hidden=false;
   updatePeek();
 }
 function routeWeather(coords){   // scan the whole path, not just the destination
@@ -907,10 +910,7 @@ function zoomLoop(i){
   if(!b.isEmpty()) map.fitBounds(b, {padding:{top:80,bottom:180,left:40,right:40}, maxZoom:15});
 }
 function fillStats(){
-  // no total in the legend header: the panel lists paths/parks/parking too, so a PCN-only
-  // figure there would read as the total. The dock stat below carries it, labelled.
-  $('stKm').textContent = META.total_km.toFixed(0)+' km';
-  $('stSeg').textContent = META.seg_count.toLocaleString();
+  // dock dropped the PCN stat row (calmer default); the figure now lives only in the About sheet
   $('sheetKm').textContent = META.total_km.toFixed(1);
 }
 
@@ -927,7 +927,7 @@ function wxPeekIcon(){
 }
 function updatePeek(){
   let t='Nearby';
-  if(!views.viewNearest.hidden) t = wxPeekIcon() + (nearest ? ('Nearest connector · '+$('nearDist').textContent) : 'Tap ◎ to find the nearest connector');
+  if(!views.viewNearest.hidden) t = wxPeekIcon() + (nearest ? ('Nearest connector · '+nearDistLabel()) : 'Locate to find your nearest connector');
   else if(!views.viewRoute.hidden) t = routeResult ? ('Route · '+(routeResult.meters/1000).toFixed(1)+' km · '+Math.round(100*routeResult.cyclingPct)+'% cycling') : 'Plan a route';
   else if(!views.viewRec.hidden) t = 'Recording · '+(recDist/1000).toFixed(2)+' km';
   else if(!views.viewSum.hidden) t = 'Ride saved · '+$('sumDist').textContent+' km';
@@ -1069,7 +1069,7 @@ function ensureGraph(){
 function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
-  routeMode=true; $('routeBtn').classList.add('active'); map.getCanvas().style.cursor='crosshair';
+  routeMode=true; map.getCanvas().style.cursor='crosshair';
   show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); updateGpsStatus();
   if(routeOptions){ renderRoutes(routeOptions); selectRoute(routeSel,false); }
   else resetRoutePanel();   // start is an explicit choice now (⌖ current location / search / tap) — no silent auto-fill
@@ -1081,7 +1081,7 @@ function exitRoute(){
   // While a ride is running the route button / X must NOT tear down the planner — that used to hide
   // the GO controls and strand the route line on the map. Warn and keep navigation intact instead.
   if(navActive){ toast('End your ride first'); return; }
-  routeMode=false; $('routeBtn').classList.remove('active'); map.getCanvas().style.cursor=''; closeMenu();
+  routeMode=false; map.getCanvas().style.cursor=''; closeMenu();
   // "Off" means a clean map: leaving the planner clears the plan and its markers — unless you're
   // actively navigating, when the route stays so you can keep riding it.
   if(!navActive){ clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); }
@@ -1313,16 +1313,18 @@ function navReroute(){
   });
 }
 const GO_HTML=$('rtGoBtn').innerHTML;
+// Compass + Record ride the same trigger: they only join the FAB stack once a ride is underway.
+function updateFabStack(){ const f=$('fabStack'); if(f) f.classList.toggle('riding', navActive); }
 function startNav(){
   if(!routeResult) return;
-  navActive=true; offRouteCount=0;
+  navActive=true; offRouteCount=0; updateFabStack();
   if(!locActive) geo.trigger();
   requestOrientation().then(ok=>{ if(ok) startOrientation(); });   // GO turns the heading arrow on for the ride
   closeMenu(); setDock(true);                                      // fold the planner so the map + turn banner lead
   $('rtGoBtn').textContent='End ride';
   setNavBanner('Starting…',''); toast('Navigation on'); if(user) liveGuidance();
 }
-function stopNav(){ navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
+function stopNav(){ navActive=false; updateFabStack(); const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 // One search over the offline indexes — parks, MRT/LRT stations and 6-digit postcodes — shared by
 // the From and To fields. Scope is stated in the UI (#rtScope) so nothing feels silently missing.
@@ -1370,7 +1372,8 @@ $('rtChips').addEventListener('click', e=>{
   const b=e.target.closest('.rt-chip'); if(!b) return;
   const it=($('rtChips')._items||[])[+b.dataset.i]; if(it) chipPick(it);
 });
-$('routeBtn').addEventListener('click', ()=> routeMode?exitRoute():enterRoute());
+$('planRideBtn').addEventListener('click', enterRoute);            // the route planner now opens from the dock CTA
+$('recLink').addEventListener('click', ()=>{ if(!recording) startRec(); });  // free-ride recording, without planning a route
 $('routeClose').addEventListener('click', exitRoute);
 function useCurrentAsStart(){
   if(!user) return;
@@ -1559,7 +1562,34 @@ syncThemeIcon();
 updateCompassIcon();
 updateWxUI();            // show last snapshot instantly (if any)
 loadWeather();          // then refresh in the background when online
-$('dockHandle').addEventListener('click', ()=> setDock(!$('dock').classList.contains('collapsed')));
+// Draggable dock: pull the handle up to expand or down to collapse; a plain tap still toggles.
+(function(){
+  const dock=$('dock'), handle=$('dockHandle');
+  let startY=0, dy=0, dragging=false, moved=false;
+  handle.addEventListener('pointerdown', e=>{
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    dragging=true; moved=false; startY=e.clientY; dy=0;
+    dock.classList.add('dragging');
+    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  handle.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    dy=e.clientY-startY; if(Math.abs(dy)>5) moved=true;
+    const collapsed=dock.classList.contains('collapsed');
+    const t=Math.max(-300, Math.min(300, collapsed ? Math.min(0,dy) : Math.max(0,dy)));   // follow one way
+    dock.style.transform='translateY('+t+'px)';
+  });
+  function end(){
+    if(!dragging) return; dragging=false;
+    dock.classList.remove('dragging'); dock.style.transform='';
+    const collapsed=dock.classList.contains('collapsed');
+    if(!moved){ setDock(!collapsed); return; }              // tap = toggle
+    if(collapsed && dy<-40) setDock(false);                 // pulled up → expand
+    else if(!collapsed && dy>40) setDock(true);             // pushed down → collapse
+  }
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+})();
 if(matchMedia('(max-width:560px)').matches){ legend.classList.add('collapsed'); lgHead.setAttribute('aria-expanded','false'); }
 updatePeek();
 setDockH();

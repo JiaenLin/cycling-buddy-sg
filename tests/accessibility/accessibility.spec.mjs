@@ -17,7 +17,7 @@ test('initial responsive application and route state meet automated WCAG 2.2 AA 
   await openArtifact(page);
   await expectNoViolations(page, 'initial application');
 
-  await page.getByRole('button', { name: 'Plan a route' }).click();
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.evaluate(() => {
     handleRouteClick([103.7859, 1.4370]);
     handleRouteClick([103.9040, 1.4043]);
@@ -45,6 +45,7 @@ test('modal focus is contained, closed dialogs are inert, and focus returns to t
 
 test('physical screen-reader toggle labels use referenced native text and decorative icons', async ({ page }) => {
   await openArtifact(page);
+  await page.evaluate(() => { navActive = true; updateFabStack(); });   // the compass FAB is GO-only — reveal it to read its label
   const controls = [
     { id: 'wxBtn', labelId: 'wxBtnLabel', name: 'Rain zones', icon: 'svg' },
     {

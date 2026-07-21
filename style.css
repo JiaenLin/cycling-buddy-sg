@@ -169,6 +169,35 @@ body{
 .stat .v{font-family:var(--mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
 .stat .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
 
+/* ---- v34: calmer dock ---- */
+/* draggable dock: the handle drives a pull-to-resize; the transform snaps back on release */
+.dock{transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.dock.dragging{transition:none}
+.dock-handle{touch-action:none}
+/* Plan a ride — the primary action, anchoring the default dock */
+.dk-plan{width:100%;min-height:52px;margin-top:12px;font-size:15.5px;font-weight:800;border-radius:14px;
+  box-shadow:0 6px 16px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+.dk-plan svg{width:20px;height:20px;flex:0 0 auto}
+/* Record a ride — a quiet secondary, keeps free-ride recording reachable without a planned route */
+.dk-reclink{appearance:none;-webkit-appearance:none;width:100%;min-height:36px;margin-top:8px;display:flex;
+  align-items:center;justify-content:center;gap:8px;background:transparent;border:0;color:var(--ink-dim);
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--ui)}
+.dk-reclink:active{transform:scale(.98)}
+.dk-reclink .rl-dot{width:11px;height:11px;border-radius:50%;background:var(--rec);flex:0 0 auto}
+/* merged weather + go/no-go row: a coloured left rail and the verdict word carry the severity */
+.wx-merged{border-left:3px solid var(--line)}
+.wx-go{font-weight:800}
+.wx-merged[data-sev="safe"]{border-left-color:var(--wx-safe)}   .wx-merged[data-sev="safe"] .wx-go{color:var(--wx-safe)}
+.wx-merged[data-sev="rain"]{border-left-color:var(--wx-rain)}   .wx-merged[data-sev="rain"] .wx-go{color:var(--wx-rain)}
+.wx-merged[data-sev="heavy"]{border-left-color:var(--wx-heavy)} .wx-merged[data-sev="heavy"] .wx-go{color:var(--wx-heavy)}
+.wx-merged[data-sev="storm"]{border-left-color:var(--wx-storm)} .wx-merged[data-sev="storm"] .wx-go{color:var(--wx-storm)}
+.wx-merged[data-sev="haze"]{border-left-color:var(--wx-haze)}   .wx-merged[data-sev="haze"] .wx-go{color:var(--wx-haze)}
+.wx-merged[data-sev="mist"]{border-left-color:var(--wx-mist)}   .wx-merged[data-sev="mist"] .wx-go{color:var(--wx-mist)}
+/* Compass + Record join the FAB stack only during a ride (GO) */
+.fab.go-only{display:none}
+.fabs.riding .fab.go-only{display:grid;animation:fabpop .28s cubic-bezier(.2,.9,.3,1.4) both}
+@keyframes fabpop{from{opacity:0;transform:translateY(8px) scale(.85)}to{opacity:1;transform:none}}
+
 /* weather (NEA 2-hour forecast) */
 .wx-card{display:flex;align-items:center;gap:11px;margin-top:12px;padding:9px 11px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
 /* an author display: rule outranks the UA's [hidden]{display:none}, so restate it */

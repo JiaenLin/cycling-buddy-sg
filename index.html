@@ -95,17 +95,13 @@
       <div class="wm"><b>Cycling Buddy</b><span>Ride Singapore</span></div>
     </div>
     <div class="topbtns">
+      <button class="iconbtn" id="themeBtn" aria-label="Switch light or dark theme" title="Theme"></button>
       <button class="iconbtn" id="shareBtn" aria-label="Share this app" title="Share">
         <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.6"/><circle cx="17.5" cy="5.5" r="2.6"/><circle cx="17.5" cy="18.5" r="2.6"/><path d="M8.4 10.8l6.8-4M8.4 13.2l6.8 4"/></svg>
-      </button>
-      <button class="iconbtn" id="wxBtn" aria-labelledby="wxBtnLabel" aria-pressed="false" title="Rain zones — next 2 hours">
-        <span class="sr-only" id="wxBtnLabel">Rain zones</span>
-        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M7 16.5a4.5 4.5 0 0 1-.4-8.98 6 6 0 0 1 11.5 1.48A3.5 3.5 0 0 1 17.5 16"/><path d="M8 19l-1.2 2.2M12.2 19l-1.2 2.2M16.4 19l-1.2 2.2"/></svg>
       </button>
       <button class="iconbtn" id="installBtn" hidden aria-label="Install app" title="Install">
         <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
       </button>
-      <button class="iconbtn" id="themeBtn" aria-label="Switch light or dark theme" title="Theme"></button>
       <a class="iconbtn" href="feedback.html" aria-label="Give feedback" title="Feedback">
         <svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-4.6A8.4 8.4 0 1 1 21 11.5z"/><path d="M8.5 10.5h7M8.5 13.5h4"/></svg>
       </a>
@@ -129,42 +125,39 @@
     <span class="wx-cap-time" id="wxCapTime"></span>
   </div>
 
-  <div class="fabs">
-    <button class="fab" id="routeBtn" aria-label="Plan a route" title="Plan a route">
-      <svg viewBox="0 0 24 24"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg>
-    </button>
+  <div class="fabs" id="fabStack">
     <button class="fab" id="locBtn" aria-label="Find my location" title="Locate me">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M12 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10z"/><circle cx="12" cy="11" r="2.3" fill="currentColor" stroke="none"/></svg>
     </button>
-    <button class="fab compass" id="headingBtn" aria-labelledby="headingBtnLabel" aria-pressed="false" title="Compass · face your heading">
+    <button class="fab" id="wxBtn" aria-labelledby="wxBtnLabel" aria-pressed="false" title="Rain zones — next 2 hours">
+      <span class="sr-only" id="wxBtnLabel">Rain zones</span>
+      <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M7 16.5a4.5 4.5 0 0 1-.4-8.98 6 6 0 0 1 11.5 1.48A3.5 3.5 0 0 1 17.5 16"/><path d="M8 19l-1.2 2.2M12.2 19l-1.2 2.2M16.4 19l-1.2 2.2"/></svg>
+    </button>
+    <button class="fab compass go-only" id="headingBtn" aria-labelledby="headingBtnLabel" aria-pressed="false" title="Compass · face your heading">
       <span class="sr-only" id="headingBtnLabel">Face direction — rotate map to the way you're heading</span>
       <span class="needle" id="compassNeedle" aria-hidden="true"><svg focusable="false" viewBox="0 0 24 24" fill="none" stroke="none"><path d="M12 3.2 15.6 13 12 11.1 8.4 13Z" fill="var(--accent)"/><path d="M12 20.8 8.4 13 12 14.9 15.6 13Z" fill="#9AA6B2"/></svg></span>
     </button>
-    <button class="fab rec" id="recBtn" aria-label="Record a ride" title="Record ride"><span class="dot"></span></button>
+    <button class="fab rec go-only" id="recBtn" aria-label="Record a ride" title="Record ride"><span class="dot"></span></button>
   </div>
 
   <div class="dock" id="dock">
     <button class="dock-handle" id="dockHandle" aria-label="Expand or collapse panel" aria-expanded="true"><span class="grip"></span><span class="dock-peek" id="dockPeek"></span></button>
     <div class="dock-body" id="dockBody">
     <div id="viewNearest">
-      <div class="dk-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg> Nearest park connector</div>
-      <div class="dk-main"><span class="dk-big" id="nearDist">—</span><span class="dk-sub" id="nearSub">Tap ◎ to locate</span></div>
-      <div class="divider"></div>
-      <div class="stats">
-        <div class="stat"><span class="v" id="stKm">—</span><span class="k">PCN</span></div>
-        <div class="stat"><span class="v">7</span><span class="k">Loops</span></div>
-        <div class="stat"><span class="v" id="stSeg">—</span><span class="k">Segments</span></div>
+      <div class="wx-card wx-merged" id="wxRow" hidden data-sev="clear">
+        <span class="wx-ic" id="wxIc" aria-hidden="true">☀️</span>
+        <span class="wx-tx"><span class="wx-main" id="wxMain">—</span><span class="wx-sub" id="wxSub">—</span></span>
+        <button class="wx-rf" id="wxRefresh" aria-label="Refresh forecast" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v5h-5"/></svg></button>
       </div>
       <div class="wx-card rack-card" id="rackRow" hidden role="button" tabindex="0" title="Show this rack on the map">
         <span class="wx-ic rk-ic" aria-hidden="true">P</span>
         <span class="wx-tx"><span class="wx-main" id="rackMain">—</span><span class="wx-sub" id="rackSub">—</span></span>
       </div>
-      <div class="wx-card" id="wxRow" hidden data-sev="clear">
-        <span class="wx-ic" id="wxIc" aria-hidden="true">☀️</span>
-        <span class="wx-tx"><span class="wx-main" id="wxMain">—</span><span class="wx-sub" id="wxSub">—</span></span>
-        <button class="wx-rf" id="wxRefresh" aria-label="Refresh forecast" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v5h-5"/></svg></button>
-      </div>
-      <div class="wx-adv" id="wxAdv" hidden data-sev="clear"></div>
+      <button class="btn primary dk-plan" id="planRideBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg>
+        Plan a ride
+      </button>
+      <button class="dk-reclink" id="recLink" type="button"><span class="rl-dot" aria-hidden="true"></span> Record a ride</button>
     </div>
     <div id="viewRec" hidden>
       <div class="dk-label"><span class="live-dot"></span> Recording ride</div>
@@ -246,7 +239,7 @@
       <li><span class="kbd">◎</span> Locate — live position + the nearest connector.</li>
       <li><span class="kbd">➤</span> Compass — with GPS on, one tap zooms in and turns the map to face the way you're heading. Tap again for north-up. Twist with two fingers to rotate any time.</li>
       <li><span class="kbd">⦚</span> Route — tap a start &amp; destination for offline turn-by-turn that prefers park connectors.</li>
-      <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and along your planned route), with a heads-up when thundery showers are likely. Tap the <b>cloud</b> button (top bar) for a rain-zone map of the whole island — coloured zones are wet, everywhere else is clear to ride.</li>
+      <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and along your planned route), with a heads-up when thundery showers are likely. Tap the <b>cloud</b> button (right side) for a rain-zone map of the whole island — coloured zones are wet, everywhere else is clear to ride.</li>
       <li><span class="kbd">🌳</span> Parks — every park &amp; nature reserve is washed in green; tap one for its name and size. Toggle them in the Layers panel.</li>
       <li><span class="kbd">P</span> Bike parking — zoom in past street level and LTA's bike racks appear. Solid <b>P</b> = sheltered, hollow = open-air; tap for the number of spaces. When you're located, the nearest rack shows in the panel — tap it to jump there.</li>
       <li><span class="kbd">●</span> Record — traces your ride with distance, time and speed; export GPX.</li>
