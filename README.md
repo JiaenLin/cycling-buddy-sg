@@ -8,8 +8,10 @@ parking island-wide. Plan routes offline, check the rain before you go, find you
 connector, record your ride — on a real street basemap. No app store, no sign-up, no ads, no
 tracking cookies.
 
+**Now at version 1.0.**
+
 **In numbers:** 334.8 km of park connectors · 432.9 km of cycling paths · 24.2 km Rail Corridor ·
-305 parks & nature reserves (64.7 km²) · 396 bike racks (19,329 spaces) · live NEA rain radar.
+305 parks & nature reserves (64.7 km²) · 396 bike racks (19,329 spaces) · live NEA rain, UV & PM2.5 air quality.
 
 ![Cycling Buddy SG](icons/og.png)
 
@@ -21,12 +23,21 @@ tracking cookies.
   When you're located, the nearest rack shows in the panel — tap to jump to it.
 - **Locate** — live GPS position and the nearest park connector.
 - **Route** — offline turn-by-turn A* routing with a cycling cost profile that prefers
-  cycleways/park connectors over roads over footpaths, and **excludes expressways**. Two options
-  per trip (*Most cycling* / *Shorter*), colour-coded by segment, with a **helmet notice** when a route uses roads.
-- **Weather** — live NEA 2-hour forecast: a rain-zone map of the island, plus a heads-up along your planned route.
+  cycleways/park connectors over roads over footpaths, and **excludes expressways**. A recommended
+  route plus **Balanced** and **Fastest** alternatives, colour-coded by segment, a **helmet notice**
+  when a route uses roads, and **bridge/underpass markers** where the path crosses a canal or river
+  or dips under a road.
+- **Weather & air quality** — live NEA 2-hour rain forecast (an island rain-zone map plus a heads-up
+  along your route), and the current **temperature, UV index and PM2.5** for where you are.
 - **Record** — trace a ride with live distance/time/speed, export **GPX**.
 - **Installable PWA** — Add to Home Screen; works offline once loaded.
 - **Private by design** — your location never leaves your device. No accounts, no tracking cookies.
+
+## What's new in v1.0
+- **Live temperature, UV index and PM2.5 air quality** alongside the rain forecast — know the heat and haze before you ride.
+- **Bridge & underpass alerts** on your planned route — markers show where a park connector crosses a canal or river, or dips under a road.
+- **Cleaner, draggable route panel** — a recommended route plus *Balanced* / *Fastest* alternatives, with GO always in reach.
+- Dozens of routing, offline-reliability, accessibility (WCAG 2.2 AA) and UX refinements since the first public build.
 
 ## Why
 Singapore's cycling network is scattered across separate agencies and datasets — NParks runs the

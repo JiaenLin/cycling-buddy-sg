@@ -1,6 +1,6 @@
 # Cycling Buddy SG
 
-> Cycling Buddy SG is a free, offline-capable cycling map for Singapore. It shows all 7 Park Connector Network (PCN) loops, LTA cycling paths, the Rail Corridor, 305 parks and nature reserves, and 396 bike-parking racks on one map, with offline turn-by-turn routing that prefers park connectors, a live NEA 2-hour rain radar, and ride recording with GPX export. It is a Progressive Web App that installs from any browser — no app store, no sign-up, no ads. Built and maintained by Lin Jiaen.
+> Cycling Buddy SG (version 1.0) is a free, offline-capable cycling map for Singapore. It shows all 7 Park Connector Network (PCN) loops, LTA cycling paths, the Rail Corridor, 305 parks and nature reserves, and 396 bike-parking racks on one map, with offline turn-by-turn routing that prefers park connectors (with bridge and underpass alerts along your route), a live NEA 2-hour rain forecast plus the current temperature, UV index and PM2.5 air quality, and ride recording with GPX export. It is a Progressive Web App that installs from any browser — no app store, no sign-up, no ads. Built and maintained by Lin Jiaen.
 
 ## Key facts
 - Name: Cycling Buddy SG
