@@ -409,6 +409,24 @@ test('the FAB stack stays minimal until GO reveals Compass and Record', async ({
   expect(errors).toEqual([]);
 });
 
+test('the locate FAB exits location mode in one tap, clearing the nearest line and proximity cards', async ({ page }) => {
+  const errors = await openArtifact(page);
+  const state = () => page.evaluate(() => geo._watchState);
+  await page.getByRole('button', { name: 'Find my location' }).click();
+  await expect.poll(state).toBe('ACTIVE_LOCK');                       // located and following
+  await expect(page.locator('#connRow')).toBeVisible();              // nearest connector surfaces once located
+  await expect.poll(() => page.evaluate(() => map.getSource('nearest')._data.features.length)).toBeGreaterThan(0); // dashed line drawn
+  // simulate the rider panning away — MapLibre drops to BACKGROUND, where a tap used to only re-lock
+  await page.evaluate(() => { geo._watchState = 'BACKGROUND'; });
+  await page.getByRole('button', { name: 'Find my location' }).click();
+  await expect.poll(state).toBe('OFF');                              // one tap fully exits, no re-lock loop
+  await expect(page.locator('#locBtn')).not.toHaveClass(/active/);
+  await expect(page.locator('#connRow')).toBeHidden();              // nearest-connector card cleared
+  await expect(page.locator('#rackRow')).toBeHidden();              // nearest-rack card cleared
+  expect(await page.evaluate(() => map.getSource('nearest')._data.features.length)).toBe(0); // dashed line removed
+  expect(errors).toEqual([]);
+});
+
 test('leaving the planner mid-ride warns instead of tearing navigation down', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.evaluate(() => { startOrientation = () => {}; requestOrientation = () => Promise.resolve(false); geo.trigger = () => {}; });

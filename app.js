@@ -1103,7 +1103,26 @@ $('themeBtn').addEventListener('click', ()=>{
 });
 
 // ---------- FABs ----------
-$('locBtn').addEventListener('click', ()=>{ geo.trigger(); requestOrientation().then(ok=>{ if(ok) startOrientation(); }); });  // compass on locate → the heading arrow shows even when standing still
+$('locBtn').addEventListener('click', ()=>{
+  // One-tap exit. MapLibre's tracking cycles OFF→ACTIVE_LOCK→(pan)→BACKGROUND, and from BACKGROUND a
+  // tap only re-locks — so once you'd panned, the dot could never be dismissed. Outside a ride, if
+  // location is running in any state, force it fully off (trigger until _watchState reports OFF).
+  if(!navActive && geo._watchState && geo._watchState !== 'OFF'){
+    let guard=0; while(geo._watchState !== 'OFF' && guard++ < 4) geo.trigger();
+    if(headingMode) exitHeading(true);
+    stopOrientation();
+    setLocActive(false);
+    // Exiting location drops everything anchored to the rider's position: the dashed nearest-
+    // connector line and the two proximity cards (nearest connector, nearest rack). Keep the fix
+    // itself only while a recording is running, which relies on it.
+    if(!recording) user=null;
+    nearest=null; nearRack=null;
+    updateUserArrow(); updateNearUI(); updateRackUI(); refreshNearestSource();
+    return;
+  }
+  geo.trigger();
+  requestOrientation().then(ok=>{ if(ok) startOrientation(); });  // compass on locate → the heading arrow shows even when standing still
+});
 $('recBtn').addEventListener('click', ()=> recording?stopRec():startRec());
 $('stopBtn').addEventListener('click', stopRec);
 $('doneBtn').addEventListener('click', ()=>show('viewNearest'));
