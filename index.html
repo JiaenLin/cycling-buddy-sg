@@ -88,9 +88,12 @@
 
   <div class="topbar">
     <div class="brand">
-      <svg class="glyph" viewBox="0 0 32 32" aria-hidden="true">
-        <circle cx="16" cy="16" r="13" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-dasharray="4 4.5"/>
-        <circle cx="16" cy="16" r="4.4" fill="var(--accent)"/>
+      <svg class="glyph" viewBox="0 0 512 512" aria-hidden="true">
+        <circle cx="256" cy="256" r="206" fill="none" stroke="#1d4ed8" stroke-width="30" stroke-dasharray="20 42" stroke-linecap="round"/>
+        <circle cx="256" cy="256" r="150" fill="#1d4ed8"/>
+        <g transform="translate(256,256) scale(9.2) translate(-12,-12.4)" fill="none" stroke="#fff" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>
+        </g>
       </svg>
       <div class="wm"><b>Cycling Buddy</b><span>Ride Singapore</span></div>
     </div>
@@ -236,21 +239,23 @@
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="About Cycling Buddy SG" aria-hidden="true" inert>
     <div class="grip"></div>
     <button class="iconbtn close" id="closeSheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    <h3>Cycling Buddy SG — your Singapore cycling companion</h3>
-    <p><b>Cycling Buddy SG is a free, offline cycling map for Singapore</b> — the whole network on one map: the 7 Park Connector loops, LTA's cycling paths, the Rail Corridor, every park and nature reserve, and bike parking island-wide. Plan a route offline, check the rain before you go, find your nearest connector, and record your ride — installable, free, and no app store.</p>
-    <p><b>How to use</b></p>
+    <h3>Cycling Buddy SG — the free cycling map for Singapore</h3>
+    <p class="sheet-badge">Version 1.0 · free · works offline · no app store</p>
+    <p>Everything for a Singapore ride on one map: the <b>7 Park Connector loops</b>, LTA's cycling paths, the Rail Corridor, every park &amp; nature reserve, and island-wide bike parking. Plan routes offline, check the rain &amp; air quality, find your nearest connector, and record your ride.</p>
+    <p><b>What you can do</b></p>
     <ul>
-      <li>Drag to pan, pinch/scroll to zoom, tap anything — a path, a park, a rack — to identify it.</li>
-      <li><span class="kbd">📍</span> Locate — live position + the nearest connector.</li>
-      <li><span class="kbd">➤</span> Compass — with GPS on, one tap zooms in and turns the map to face the way you're heading. Tap again for north-up. Twist with two fingers to rotate any time.</li>
-      <li><span class="kbd">⦚</span> Route — tap a start &amp; destination for offline turn-by-turn that prefers park connectors, with a recommended route plus Balanced and Fastest alternatives. Bridges over canals and rivers, and road underpasses, show as markers along your route — tap one for its name.</li>
-      <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and along your planned route), plus the current temperature, UV index and PM2.5 air quality where you are, with a heads-up when thundery showers are likely. Tap the <b>cloud</b> button (right side) for a rain-zone map of the whole island — coloured zones are wet, everywhere else is clear to ride.</li>
-      <li><span class="kbd">🌳</span> Parks — every park &amp; nature reserve is washed in green; tap one for its name and size. Toggle them in the Layers panel.</li>
-      <li><span class="kbd">P</span> Bike parking — zoom in past street level and LTA's bike racks appear. Solid <b>P</b> = sheltered, hollow = open-air; tap for the number of spaces. When you're located, the nearest rack shows in the panel — tap it to jump there.</li>
-      <li><span class="kbd">●</span> Record — traces your ride with distance, time and speed; export GPX.</li>
-      <li>Toggle any layer — loops, Rail Corridor, cycling paths, parks, bike parking, diversions — in the Layers panel; tap its <span class="kbd">⤢</span> to frame it.</li>
-      <li><span class="kbd">⚠️</span> Diversions — a red glow over part of a loop, with a caution marker, flags a stretch affected by a closure (e.g. Gardens by the Bay's Bay South waterfront during the bridge works; the detour runs around the perimeter). Tap it for the official diversion map, and follow on-site signage.</li>
-      <li><span class="kbd">⬇</span> Install — tap the install button (top bar) to add it to your home screen and run it offline like a native app.</li>
+      <li><b>Plan a route offline</b> <span class="kbd">⦚</span> — tap a start &amp; destination for turn-by-turn that prefers park connectors and avoids expressways. You get a recommended route plus <b>Balanced</b> and <b>Fastest</b> options, and <b>bridges &amp; underpasses</b> appear as markers along the way.</li>
+      <li><b>Check weather &amp; air quality</b> <span class="kbd">⛅</span> — a live 2-hour rain forecast, the current temperature, UV index and PM2.5 for where you are, and an island rain-zone map (the <b>cloud</b> button, top-right).</li>
+      <li><b>Find your nearest connector &amp; rack</b> <span class="kbd">📍</span> — one tap shows your position, the closest park connector, and the nearest bike parking.</li>
+      <li><b>Follow your heading</b> <span class="kbd">➤</span> — the compass turns the map to face the way you're riding; twist two fingers to rotate any time.</li>
+      <li><b>Record a ride</b> <span class="kbd">●</span> — distance, time and speed, exported as <b>GPX</b>.</li>
+      <li><b>Install it</b> <span class="kbd">⬇</span> — Add to Home Screen and it runs full-screen and offline like a native app.</li>
+    </ul>
+    <p><b>On the map</b></p>
+    <ul>
+      <li>Tap anything — a path, park or rack — to identify it. Toggle any layer (loops, Rail Corridor, cycling paths, parks, bike parking, diversions) in the <b>Layers</b> panel.</li>
+      <li><span class="kbd">P</span> Bike parking appears as you zoom in — solid <b>P</b> is sheltered, hollow is open-air; tap for the number of spaces.</li>
+      <li><span class="kbd">⚠️</span> Diversions — a red glow with a caution marker flags a stretch affected by a closure; tap it for the official diversion map and follow on-site signage.</li>
     </ul>
     <p><b>Common questions</b></p>
     <div class="faq">

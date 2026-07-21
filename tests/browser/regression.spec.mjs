@@ -79,26 +79,30 @@ test('weather row leads with live temperature and shows UV + PM2.5 as colour-cod
   expect(errors).toEqual([]);
 });
 
-test('a planned route drops bridge/underpass markers on the map, named on tap', async ({ page }) => {
+test('route bridge/underpass markers hide on a zoomed-out overview and appear when zoomed in, named on tap', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a ride' }).click();
   await page.waitForFunction(() => typeof CROSS !== 'undefined' && CROSS && CROSS.bridge.length > 0);
-  // drive a route through a named bridge and an underpass; both must appear as map markers
+  // drive a route through a named bridge and an underpass, then sit at a zoomed-out overview
   const info = await page.evaluate(() => {
     const namedBridge = CROSS.bridge.find(b => b[2]);
     const underpass = CROSS.underpass[0];
     routeResult = { coords: [[namedBridge[0], namedBridge[1]], [underpass[0], underpass[1]]], directions: [], hasCarWay: false };
     renderRouteCrossings();
-    const bb = new maplibregl.LngLatBounds(); routeResult.coords.forEach(c => bb.extend(c)); map.fitBounds(bb, { padding: 70, duration: 0 });
+    map.jumpTo({ center: [namedBridge[0], namedBridge[1]], zoom: 11 });
     return { count: crossMarkers.length, name: namedBridge[2] };
   });
   expect(info.count).toBeGreaterThan(0);
+  // overview (zoom 11): markers hidden so the whole-route view stays clean
+  await expect(page.locator('.cross-mk.cross-bridge').first()).toBeHidden();
+  // zoom in: the markers appear
+  await page.evaluate(() => map.jumpTo({ zoom: 16 }));
   await expect(page.locator('.cross-mk.cross-bridge').first()).toBeVisible();
   await expect(page.locator('.cross-mk.cross-underpass').first()).toBeVisible();
   // tapping the named bridge marker reveals its waterway name
   const named = page.locator(`.cross-mk[aria-label="Bridge over ${info.name}"]`).first();
   await expect(named).toBeVisible();
-  await named.dispatchEvent('click');   // dispatch, not pointer-click: a tiny marker at fit-zoom isn't reliably hittable
+  await named.dispatchEvent('click');   // dispatch, not pointer-click: a tiny marker isn't reliably hittable
   await expect(page.locator('.cross-pop')).toContainText('Bridge over ' + info.name);
   expect(errors).toEqual([]);
 });

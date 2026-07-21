@@ -735,6 +735,14 @@ function renderRouteCrossings(){
     el.title=label; el.setAttribute('role','img'); el.setAttribute('aria-label', label);
     crossMarkers.push(mk);
   }
+  updateCrossVisibility();
+}
+// bridge/underpass markers only make sense up close: hide them on a zoomed-out route overview, show
+// them when zoomed in or while navigating (GO), so the whole-route view stays clean.
+const CROSS_MIN_ZOOM=14.2;
+function updateCrossVisibility(){
+  const show = navActive || map.getZoom() >= CROSS_MIN_ZOOM;
+  for(const m of crossMarkers) m.getElement().style.display = show ? '' : 'none';
 }
 const WX_ICONS=[['rain','🌦️'],['heavy','🌧️'],['storm','⛈️']];
 function wxEnsureIcons(){   // render weather emoji to canvas → map images (no asset files, offline-safe)
@@ -1198,6 +1206,7 @@ $('headingBtn').addEventListener('click', ()=>{
   enterHeading();                                                                                               // 1st tap: face direction + zoom in
 });
 map.on('rotate', updateCompassIcon);
+map.on('zoom', updateCrossVisibility);   // reveal/hide the route's bridge & underpass markers by zoom
 map.on('dragstart',   e=>{ if(headingMode && e.originalEvent) exitHeading(false); }); // a manual pan drops out of follow
 map.on('rotatestart', e=>{ if(headingMode && e.originalEvent) exitHeading(false); });
 
@@ -1459,13 +1468,13 @@ const GO_HTML=$('rtGoBtn').innerHTML;
 function updateFabStack(){ const f=$('fabStack'); if(f) f.classList.toggle('riding', navActive); }
 function startNav(){
   if(!routeResult) return;
-  navActive=true; offRouteCount=0; updateFabStack();
+  navActive=true; offRouteCount=0; updateFabStack(); updateCrossVisibility();   // GO always shows the crossings
   if(!headingMode) enterHeading(true);   // GO auto-activates facing-direction: compass follow + heading arrow
   closeMenu(); setDock(true);                                      // fold the planner so the map + turn banner lead
   $('rtGoBtn').textContent='End ride';
   setNavBanner('Starting…',''); toast('Navigation on — map faces your heading'); if(user) liveGuidance();
 }
-function stopNav(){ navActive=false; updateFabStack(); if(headingMode) exitHeading(true); const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
+function stopNav(){ navActive=false; updateFabStack(); updateCrossVisibility(); if(headingMode) exitHeading(true); const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; const el=$('navBanner'); if(el) el.hidden=true; if(routeMode) setDock(false); }
 $('rtGoBtn').addEventListener('click', ()=> navActive?stopNav():startNav());
 // One search over the offline indexes — parks, MRT/LRT stations and 6-digit postcodes — shared by
 // the From and To fields. Scope is stated in the UI (#rtScope) so nothing feels silently missing.

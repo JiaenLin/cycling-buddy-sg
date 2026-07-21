@@ -5,7 +5,7 @@
 // Deployed Cloudflare Worker (see worker/README.md). Empty = "service not live yet": submissions
 // save on the device and the feed shows a friendly placeholder.
 const FEEDBACK_API = 'https://cbsg-feedback.jiaenlin999.workers.dev';
-const APP_VERSION = 'cbsg-v41';
+const APP_VERSION = 'cbsg-v42';
 
 const $ = id => document.getElementById(id);
 const getVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
