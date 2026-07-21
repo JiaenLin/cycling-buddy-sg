@@ -1,8 +1,8 @@
 {
-  "name": "Cycling Buddy SG — Singapore Cycling Map",
-  "short_name": "Cycling Buddy",
-  "description": "The free cycling map for Singapore: park connectors, cycling paths, parks & reserves, bike parking, offline routes and live rain radar.",
-  "id": "/cycling-buddy-sg/",
+  "name": "Cycling Buddy SG (Preview)",
+  "short_name": "CB Preview",
+  "description": "Preview / testing channel of Cycling Buddy SG. Served from a separate sub-path so it installs as its own app and never collides with the production install.",
+  "id": "/cycling-buddy-sg-preview/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

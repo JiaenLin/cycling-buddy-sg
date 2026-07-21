@@ -78,7 +78,21 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cycling Buddy">
 <meta name="mobile-web-app-capable" content="yes">
+<script>
+/* Preview and production are served from the same origin under different sub-paths. On the preview
+   sub-path only, swap to a separate manifest and home-screen title so preview installs as its own
+   distinct app and never collides with the production install. No-op on production. */
+(function(){
+  if(location.pathname.indexOf('/cycling-buddy-sg-preview/') === -1) return;
+  var m = document.querySelector('link[rel="manifest"]');
+  if(m) m.setAttribute('href', 'manifest.preview.webmanifest');
+  var t = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if(t) t.setAttribute('content', 'CB Preview');
+  document.title = 'Cycling Buddy SG (Preview)';
+})();
+</script>
 <link rel="stylesheet" href="vendor/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">
 </head>

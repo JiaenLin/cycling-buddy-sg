@@ -378,6 +378,14 @@ function checkHtmlAndManifest() {
     'manifest.webmanifest: name/start/scope contract changed');
   assert(manifest.display === 'standalone' && manifest.icons?.length === 4,
     'manifest.webmanifest: standalone/four-icon contract changed');
+  assert(manifest.id === '/cycling-buddy-sg/', 'manifest.webmanifest: explicit production app id required');
+  // Preview and production share an origin; preview must install as a distinct app so it never
+  // collides with the production install, and index.html must swap to it only on the preview path.
+  const previewManifest = readJson('manifest.preview.webmanifest');
+  assert(previewManifest.name !== manifest.name && typeof previewManifest.id === 'string' && previewManifest.id !== manifest.id,
+    'manifest.preview.webmanifest: preview must declare a distinct name and id from production');
+  assert(html.includes('manifest.preview.webmanifest') && html.includes('/cycling-buddy-sg-preview/'),
+    'index.html: preview-channel manifest swap missing');
   for (const icon of manifest.icons) localAssets.add(icon.src.replace(/^\.\//, ''));
   for (const asset of localAssets) assert(fs.existsSync(path.join(ROOT, asset)), `missing HTML/manifest asset: ${asset}`);
 
@@ -421,7 +429,15 @@ function checkServiceWorker() {
     && /message[\s\S]*SKIP_WAITING[\s\S]*self\.skipWaiting\(\)/.test(source),
   'sw.js: skipWaiting must occur only after the explicit update message');
   assert(/new Request\(u, \{cache: 'reload'\}\)/.test(source), 'sw.js: atomic reload precache guard missing');
-  return `${version}; ${assets.length} existing shell assets; opt-in update contract`;
+  // Preview and production share the origin jiaenlin.github.io; CacheStorage is per-origin, so caches
+  // must be namespaced per channel and activate must reap ONLY this channel's own caches — otherwise a
+  // newer preview deploy wipes production's offline shell (the v42→v43 incident).
+  assert(/const CHANNEL\s*=/.test(source)
+    && source.includes("CHANNEL + '-shell'") && source.includes("CHANNEL + '-tiles'"),
+  'sw.js: shell/tile caches must be namespaced per channel (preview vs production)');
+  assert(/keys\.filter\(k => OWN_CACHE\.test\(k\)/.test(source),
+    'sw.js: activate must reap only this channel\'s own caches, never origin-wide');
+  return `${version}; ${assets.length} existing shell assets; per-channel isolation; opt-in update contract`;
 }
 
 function checkClosureReproducibility() {

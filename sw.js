@@ -1,9 +1,22 @@
 /* Cycling Buddy SG PWA service worker — offline app shell + runtime basemap tile cache
    © 2026 Lin Jiaen · All rights reserved */
-const VERSION = 'cbsg-v42';
-const SHELL = VERSION + '-shell';
-const TILES = VERSION + '-tiles';
+const VERSION = 'cbsg-v43';
+
+// Preview and production are served from the SAME origin (jiaenlin.github.io) under different
+// sub-paths (/cycling-buddy-sg/ and /cycling-buddy-sg-preview/). CacheStorage is per-ORIGIN, so
+// without namespacing the two channels share cache buckets AND — worse — each channel's activate
+// step used to delete every cache that was not the current version's, which meant a newer preview
+// deploy would wipe the *production* app's offline shell on any browser that had visited both.
+// Namespacing every cache by channel, scoping all cache reads to this channel's named caches, and
+// only ever deleting this channel's own caches keeps the two installs completely independent.
+const CHANNEL = self.location.pathname.includes('/cycling-buddy-sg-preview/') ? 'preview' : 'prod';
+const SHELL = VERSION + '-' + CHANNEL + '-shell';
+const TILES = VERSION + '-' + CHANNEL + '-tiles';
 const TILE_MAX = 800; // cap runtime tile cache entries
+// Matches only THIS channel's own shell/tiles caches, whatever the version token — never the other
+// channel's (its name ends -<other>-shell/tiles), never legacy un-namespaced caches like
+// cbsg-v42-shell (those carry no channel segment and are inert because reads are scoped by name).
+const OWN_CACHE = new RegExp('^cbsg-.+-' + CHANNEL + '-(?:shell|tiles)$');
 
 const SHELL_ASSETS = [
   './', 'index.html', 'style.css', 'app.js', 'router.js', 'manifest.webmanifest',
@@ -37,9 +50,11 @@ self.addEventListener('install', e => {
 self.addEventListener('message', e => { if(e.data === 'SKIP_WAITING') self.skipWaiting(); });
 
 self.addEventListener('activate', e => {
+  // Only reap THIS channel's own older caches. Leaving the other channel's caches (and any legacy
+  // un-namespaced ones) untouched is what stops a preview deploy from breaking production.
   e.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.filter(k => k !== SHELL && k !== TILES).map(k => caches.delete(k))
+      keys.filter(k => OWN_CACHE.test(k) && k !== SHELL && k !== TILES).map(k => caches.delete(k))
     )).then(() => self.clients.claim())
   );
 });
@@ -62,10 +77,11 @@ self.addEventListener('fetch', e => {
   if(url.hostname === 'gc.zgo.at' || url.hostname.endsWith('.goatcounter.com')) return;
 
   // App navigations -> serve the matching cached page (offline-first). The feedback page is its own
-  // document, so route it there; everything else is the main app shell.
+  // document, so route it there; everything else is the main app shell. Reads are scoped to this
+  // channel's SHELL cache so a stray same-origin cache from the other channel can never be served.
   if(req.mode === 'navigate'){
     const page = url.pathname.endsWith('/feedback.html') ? 'feedback.html' : 'index.html';
-    e.respondWith(caches.match(page).then(r => r || fetch(req)));
+    e.respondWith(caches.open(SHELL).then(c => c.match(page)).then(r => r || fetch(req)));
     return;
   }
 
@@ -75,19 +91,19 @@ self.addEventListener('fetch', e => {
       fetch(req).then(res => {
         if(res && res.ok){ const copy = res.clone(); caches.open(TILES).then(c => c.put(req, copy)); }
         return res;
-      }).catch(() => caches.match(req))
+      }).catch(() => caches.open(TILES).then(c => c.match(req)))
     );
     return;
   }
 
-  // Same-origin static assets -> cache-first
+  // Same-origin static assets -> cache-first, scoped to this channel's SHELL cache
   if(sameOrigin){
     e.respondWith(
-      caches.match(req).then(hit => hit || fetch(req).then(res => {
+      caches.open(SHELL).then(cache => cache.match(req).then(hit => hit || fetch(req).then(res => {
         const copy = res.clone();
-        caches.open(SHELL).then(c => c.put(req, copy));
+        cache.put(req, copy);
         return res;
-      }).catch(() => hit))
+      }).catch(() => hit)))
     );
     return;
   }
