@@ -523,6 +523,8 @@ test('keeps the responsive shell inside the viewport and keyboard-closes modal c
 test('feedback page draws a path and submits it live for review, showing a contribution card', async ({ page }) => {
   const errors = await openFeedback(page);
   await expect(page.locator('h1')).toHaveText('Feedback');
+  // the OpenFreeMap attribution starts folded so it doesn't cover the drawing guide (still expandable)
+  await expect(page.locator('#fbmap .maplibregl-ctrl-attrib')).not.toHaveClass(/maplibregl-compact-show/);
   await page.route('**/api/feedback', route => route.request().method() === 'POST'
     ? route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":"srv1","ok":true,"status":"pending"}' })
     : route.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' }));

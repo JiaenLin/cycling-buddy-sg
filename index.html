@@ -153,11 +153,8 @@
         <span class="wx-ic rk-ic" aria-hidden="true">P</span>
         <span class="wx-tx"><span class="wx-main" id="rackMain">—</span><span class="wx-sub" id="rackSub">—</span></span>
       </div>
-      <button class="btn primary dk-plan" id="planRideBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="18.5" r="2.3"/><circle cx="17.5" cy="5.5" r="2.3"/><path d="M8.4 17.2 15.6 6.8"/></svg>
-        Plan a ride
-      </button>
-      <button class="dk-reclink" id="recLink" type="button"><span class="rl-dot" aria-hidden="true"></span> Record a ride</button>
+      <button class="btn primary dk-plan" id="planRideBtn">Plan a ride</button>
+      <button class="dk-reclink" id="recLink" type="button">Record a ride</button>
     </div>
     <div id="viewRec" hidden>
       <div class="dk-label"><span class="live-dot"></span> Recording ride</div>
@@ -187,9 +184,9 @@
       <div class="rt-trip">
         <div class="rt-row rt-from" id="rtFromRow">
           <span class="rt-node rt-node-a" aria-hidden="true"></span>
-          <input id="rtFromSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Start — search or tap the map" aria-label="Start point: search a park, MRT station or postcode, use your current location, or tap the map">
+          <input id="rtFromSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Start" aria-label="Start point: search a park, MRT station or postcode, use your current location, or tap the map">
           <button id="rtLocBtn" class="rt-loc" type="button" aria-label="Use my current location as the start">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10z"/><circle cx="12" cy="11" r="2.3" fill="currentColor" stroke="none"/></svg>
           </button>
         </div>
         <div id="rtFromResults" class="rt-results" hidden></div>
@@ -198,10 +195,10 @@
         </button>
         <div class="rt-row rt-to" id="rtToRow">
           <span class="rt-node rt-node-b" aria-hidden="true"></span>
-          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Destination — park, MRT or postcode" aria-label="Destination: search a park, MRT station or Singapore postcode, or tap the map">
+          <input id="rtSearch" class="rt-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="Destination" aria-label="Destination: search a park, MRT station or Singapore postcode, or tap the map">
         </div>
       </div>
-      <div id="rtScope" class="rt-scope">Searches parks, MRT stations &amp; 6-digit postcodes — or tap the map</div>
+      <div id="rtScope" class="rt-scope">Set each point: current location <svg class="rt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10z"/><circle cx="12" cy="11" r="2.3" fill="currentColor" stroke="none"/></svg> · tap the map · search parks, MRT &amp; postcodes</div>
       <div id="rtMapHint" class="rt-maphint" hidden></div>
       <div id="rtChips" class="rt-chips" hidden></div>
       <div id="rtResults" class="rt-results" hidden></div>
@@ -236,7 +233,7 @@
     <p><b>How to use</b></p>
     <ul>
       <li>Drag to pan, pinch/scroll to zoom, tap anything — a path, a park, a rack — to identify it.</li>
-      <li><span class="kbd">◎</span> Locate — live position + the nearest connector.</li>
+      <li><span class="kbd">📍</span> Locate — live position + the nearest connector.</li>
       <li><span class="kbd">➤</span> Compass — with GPS on, one tap zooms in and turns the map to face the way you're heading. Tap again for north-up. Twist with two fingers to rotate any time.</li>
       <li><span class="kbd">⦚</span> Route — tap a start &amp; destination for offline turn-by-turn that prefers park connectors.</li>
       <li><span class="kbd">⛅</span> Weather — a live 2-hour rain forecast for your area (and along your planned route), with a heads-up when thundery showers are likely. Tap the <b>cloud</b> button (right side) for a rain-zone map of the whole island — coloured zones are wet, everywhere else is clear to ride.</li>

@@ -1098,11 +1098,8 @@ function updateFieldStates(){
   if(t){ t.classList.toggle('glow', !!routeStart && !routeEnd && !routeResult); t.classList.toggle('await', !routeStart && !routeEnd && !routeResult); }
 }
 function updateMapHint(){
-  const h=$('rtMapHint'); if(!h) return;
-  if(!routeMode || routeResult){ h.hidden=true; return; }
-  h.textContent = !routeStart ? '① Start — tap ⌖ for your location, search, or tap the map'
-                              : '② Destination — search a place, or tap the map';
-  h.hidden=false;
+  // step guidance now lives in the glowing field + the #rtScope method line; keep this box out of the way
+  const h=$('rtMapHint'); if(h) h.hidden=true;
 }
 function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
 function resetRoutePanel(){ hideOptions(); routeOptions=null; routeEndName=null; const ts=$('rtSearch'); if(ts) ts.value=''; if(!routeStart) setFromLabel(''); hideResults('rtFromResults'); hideResults('rtResults'); renderChips(); updateMapHint(); rtHint(''); updateFieldStates(); updateRtControls(); }
@@ -1251,7 +1248,7 @@ function routeToDestination(ll, name, ref){
   routeEndRef = ref ? {name:name, rk:ref.rk, rv:ref.rv} : null;
   setPoint('end',ll); updateFieldStates();
   if(routeStart) computeRoute();
-  else { renderChips(); rtHint('Now set your start — tap ⌖ for current location, search, or tap the map.'); updateMapHint(); updateRtControls(); }
+  else { renderChips(); rtHint('Now set your start — current location, search, or tap the map.'); updateMapHint(); updateRtControls(); }
 }
 function setStartFromSearch(p){   // a From-field search pick becomes the start point
   hideResults('rtFromResults'); $('rtFromSearch').value=p.name;

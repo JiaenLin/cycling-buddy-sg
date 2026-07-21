@@ -176,14 +176,13 @@ body{
 .dock-handle{touch-action:none}
 /* Plan a ride — the primary action, anchoring the default dock */
 .dk-plan{width:100%;min-height:52px;margin-top:12px;font-size:15.5px;font-weight:800;border-radius:14px;
-  box-shadow:0 6px 16px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
-.dk-plan svg{width:20px;height:20px;flex:0 0 auto}
-/* Record a ride — a quiet secondary, keeps free-ride recording reachable without a planned route */
-.dk-reclink{appearance:none;-webkit-appearance:none;width:100%;min-height:36px;margin-top:8px;display:flex;
-  align-items:center;justify-content:center;gap:8px;background:transparent;border:0;color:var(--ink-dim);
-  font:inherit;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--ui)}
+  text-align:center;box-shadow:0 6px 16px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+/* Record a ride — a quiet secondary, keeps free-ride recording reachable without a planned route.
+   Both labels are plain centred text so they line up vertically. */
+.dk-reclink{appearance:none;-webkit-appearance:none;width:100%;min-height:36px;margin-top:6px;display:flex;
+  align-items:center;justify-content:center;background:transparent;border:0;color:var(--ink-dim);
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--ui);text-align:center}
 .dk-reclink:active{transform:scale(.98)}
-.dk-reclink .rl-dot{width:11px;height:11px;border-radius:50%;background:var(--rec);flex:0 0 auto}
 /* merged weather + go/no-go row: a coloured left rail and the verdict word carry the severity */
 .wx-merged{border-left:3px solid var(--line)}
 .wx-go{font-weight:800}
@@ -290,7 +289,8 @@ body{
 .rt-swap:active{transform:scale(.9)}
 .rt-input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font-size:16px;font-family:var(--ui);padding:0;outline:none;-webkit-appearance:none;appearance:none}/* 16px: iOS Safari zooms the page on focus for any <16px input */
 .rt-input::placeholder{color:var(--ink-faint)}
-.rt-scope{margin-top:7px;font-size:11px;color:var(--ink-dim);font-weight:600;letter-spacing:.01em}
+.rt-scope{margin-top:8px;font-size:11.5px;color:var(--ink-dim);font-weight:600;letter-spacing:.01em;line-height:1.5}
+.rt-scope .rt-ic{width:13px;height:13px;vertical-align:-2px;color:var(--accent-text)}
 .rt-maphint{margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim);font-weight:600;background:var(--panel-2);border:1px dashed var(--line-strong);border-radius:999px;padding:5px 11px}
 .rt-maphint[hidden]{display:none}
 .rt-chips{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}

@@ -5,7 +5,7 @@
 // Deployed Cloudflare Worker (see worker/README.md). Empty = "service not live yet": submissions
 // save on the device and the feed shows a friendly placeholder.
 const FEEDBACK_API = 'https://cbsg-feedback.jiaenlin999.workers.dev';
-const APP_VERSION = 'cbsg-v34';
+const APP_VERSION = 'cbsg-v35';
 
 const $ = id => document.getElementById(id);
 const getVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -24,6 +24,9 @@ let mode='path', pts=[], pin=null;
 const map = new maplibregl.Map({ container:'fbmap', style:STYLE, center:[103.85,1.30], zoom:11, maxZoom:19, attributionControl:false });
 map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-left');
 map.addControl(new maplibregl.GeolocateControl({ positionOptions:{enableHighAccuracy:true}, trackUserLocation:true }), 'top-right');
+// Start the OpenFreeMap attribution folded so it doesn't cover the drawing guide; the ⓘ still expands it.
+function foldAttribution(){ const el=document.querySelector('#fbmap .maplibregl-ctrl-attrib'); if(el){ el.classList.add('maplibregl-compact'); el.classList.remove('maplibregl-compact-show'); } }
+foldAttribution(); map.on('load', foldAttribution); map.once('idle', foldAttribution);
 function emptyFC(){ return {type:'FeatureCollection',features:[]}; }
 map.on('load', ()=>{
   const cpn = getVar('--cpn') || '#5E7169';
