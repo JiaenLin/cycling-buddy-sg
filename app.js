@@ -685,7 +685,7 @@ function loadCrossings(){
   if(CROSS) return Promise.resolve(CROSS);
   if(crossLoading) return crossLoading;
   crossLoading=fetch('data/crossings.json').then(r=>r.ok?r.json():null)
-    .then(j=>{ CROSS=j; if(views.viewRoute && !views.viewRoute.hidden) updateRouteCross(); return j; })
+    .then(j=>{ CROSS=j; renderRouteCrossings(); return j; })
     .catch(()=>null);
   return crossLoading;
 }
@@ -702,8 +702,8 @@ function routeCrossings(coords){
     return {d:best, along};
   }
   const hits=[];
-  for(const b of CROSS.bridge){ const r=onRoute(b[0],b[1]); if(r.d<=TH) hits.push({kind:'bridge', name:b[2]||null, along:r.along}); }
-  for(const u of CROSS.underpass){ const r=onRoute(u[0],u[1]); if(r.d<=TH) hits.push({kind:'underpass', name:null, along:r.along}); }
+  for(const b of CROSS.bridge){ const r=onRoute(b[0],b[1]); if(r.d<=TH) hits.push({kind:'bridge', name:b[2]||null, lng:b[0], lat:b[1], along:r.along}); }
+  for(const u of CROSS.underpass){ const r=onRoute(u[0],u[1]); if(r.d<=TH) hits.push({kind:'underpass', name:null, lng:u[0], lat:u[1], along:r.along}); }
   hits.sort((a,b)=>a.along-b.along);
   // one physical crossing can span a few adjacent segments → collapse same kind+name within 120 m along
   const out=[]; for(const h of hits){ const p=out[out.length-1]; if(p && p.kind===h.kind && p.name===h.name && h.along-p.along<120) continue; out.push(h); }
@@ -713,19 +713,28 @@ const CROSS_IC={
   bridge:'<path d="M2 17h20"/><path d="M4 17c1.6-5.6 14.4-5.6 16 0"/><path d="M8 14.3V17M16 14.3V17"/>',
   underpass:'<path d="M3 20v-7a9 9 0 0 1 18 0v7"/><path d="M3 16.4h18"/>'
 };
-function updateRouteCross(){
-  const el=$('rtCross'); if(!el) return;
+// crossings ride ON the map, only along the planned route: a marker at each bridge/underpass so a
+// rider sees "a bridge/underpass is ahead" without cluttering the panel. Tap a marker for its name.
+let crossMarkers=[], crossPop=null;
+function crossLabel(h){ return h.kind==='bridge' ? (h.name?'Bridge over '+h.name:'Canal bridge') : 'Underpass'; }
+function clearCrossMarkers(){ for(const m of crossMarkers) m.remove(); crossMarkers=[]; if(crossPop){ crossPop.remove(); crossPop=null; } }
+function renderRouteCrossings(){
+  clearCrossMarkers();
   const coords = routeResult && routeResult.coords;
-  if(views.viewRoute.hidden || !coords){ el.hidden=true; return; }
-  if(!CROSS){ loadCrossings(); el.hidden=true; return; }
-  const hits=routeCrossings(coords);
-  if(!hits.length){ el.hidden=true; return; }
-  const label=h=> h.kind==='bridge' ? (h.name?'over '+h.name:'Canal bridge') : 'Underpass';
-  const items=hits.map(h=>`<span class="rt-cross-item" data-k="${h.kind}"><svg viewBox="0 0 24 24" aria-hidden="true">${CROSS_IC[h.kind]}</svg>${esc(label(h))}</span>`).join('');
-  const nb=hits.filter(h=>h.kind==='bridge').length, nu=hits.length-nb;
-  const head=[nb?nb+' bridge'+(nb>1?'s':''):'', nu?nu+' underpass'+(nu>1?'es':''):''].filter(Boolean).join(' · ');
-  el.innerHTML=`<div class="rt-cross-head">On your route · ${esc(head)}</div><div class="rt-cross-list">${items}</div>`;
-  el.hidden=false;
+  if(!coords) return;
+  if(!CROSS){ loadCrossings(); return; }   // loadCrossings re-invokes this once the data is in
+  for(const h of routeCrossings(coords)){
+    const label=crossLabel(h);
+    const el=document.createElement('div');
+    el.className='cross-mk cross-'+h.kind;
+    el.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${CROSS_IC[h.kind]}</svg>`;
+    el.addEventListener('click', ev=>{ ev.stopPropagation(); if(crossPop) crossPop.remove();
+      crossPop=new maplibregl.Popup({closeButton:false, offset:15, className:'cross-pop'}).setLngLat([h.lng,h.lat]).setText(label).addTo(map); });
+    const mk=new maplibregl.Marker({element:el, anchor:'center'}).setLngLat([h.lng,h.lat]).addTo(map);
+    // set AFTER Marker (it defaults aria-label to "Map marker"); role=img so the div may carry aria-label
+    el.title=label; el.setAttribute('role','img'); el.setAttribute('aria-label', label);
+    crossMarkers.push(mk);
+  }
 }
 const WX_ICONS=[['rain','🌦️'],['heavy','🌧️'],['storm','⛈️']];
 function wxEnsureIcons(){   // render weather emoji to canvas → map images (no asset files, offline-safe)
@@ -1220,7 +1229,7 @@ function exitRoute(){
   routeMode=false; map.getCanvas().style.cursor=''; closeMenu();
   // "Off" means a clean map: leaving the planner clears the plan and its markers — unless you're
   // actively navigating, when the route stays so you can keep riding it.
-  if(!navActive){ clearRoutePoints(); routeResult=null; routeOptions=null; refreshRouteSource(); }
+  if(!navActive){ clearRoutePoints(); clearCrossMarkers(); routeResult=null; routeOptions=null; refreshRouteSource(); }
   show('viewNearest');
 }
 function rtHint(t){ const el=$('rtHint'); el.textContent=t||''; el.hidden=!t; setDockH(); }
@@ -1237,7 +1246,7 @@ function updateMapHint(){
   // step guidance now lives in the glowing field + the #rtScope method line; keep this box out of the way
   const h=$('rtMapHint'); if(h) h.hidden=true;
 }
-function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtCross','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
+function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } clearCrossMarkers(); $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
 function resetRoutePanel(){ hideOptions(); routeOptions=null; routeEndName=null; const ts=$('rtSearch'); if(ts) ts.value=''; if(!routeStart) setFromLabel(''); hideResults('rtFromResults'); hideResults('rtResults'); renderChips(); updateMapHint(); rtHint(''); updateFieldStates(); updateRtControls(); }
 function hideResults(id){ const b=$(id); if(b){ b.hidden=true; b.textContent=''; b._hits=null; } }
 function setPoint(which,ll){
@@ -1319,7 +1328,7 @@ function selectRoute(k, fit){
   box.querySelectorAll('.rt-alt').forEach(el=>el.classList.toggle('sel', el.dataset.k===o.key));
   refreshRouteSource(); renderDirs(routeResult.directions);
   $('rtNotice').hidden = !routeResult.hasCarWay;
-  updateRouteWx(); updateRouteCross(); updateRtControls(); updatePeek();
+  updateRouteWx(); renderRouteCrossings(); updateRtControls(); updatePeek();
   if(fit){ const b=new maplibregl.LngLatBounds(); routeResult.coords.forEach(c=>b.extend(c)); map.fitBounds(b,{padding:{top:110,bottom:300,left:50,right:50}}); }
 }
 const DIR_ICONS={
