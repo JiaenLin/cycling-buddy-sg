@@ -148,7 +148,7 @@ async function checkBrowser() {
     Object.assign(report.checks.serviceWorker, { ok: worker.installed && worker.updateLoops === 0, ...worker });
 
     const routeStarted = performance.now();
-    await page.getByRole('button', { name: 'Plan a route' }).click();
+    await page.getByRole('button', { name: 'Plan a ride' }).click();
     await page.evaluate(() => {
       handleRouteClick([103.7859, 1.4370]);
       handleRouteClick([103.9040, 1.4043]);
