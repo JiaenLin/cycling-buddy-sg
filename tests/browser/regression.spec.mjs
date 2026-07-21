@@ -41,9 +41,9 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await page.evaluate(() => loadWeather(true));
   await expect(page.locator('#wxRow')).toBeVisible();
   await expect(page.locator('#wxMain')).toHaveText('Thundery Showers');
-  // the row is compact now: severity colours the left rail, and the rain window is a chip (no repeated verdict)
+  // severity colours the left rail; the rain window folds into the header sub-line (no repeated verdict)
   await expect(page.locator('#wxRow')).toHaveAttribute('data-sev', 'storm');
-  await expect(page.locator('#wxMetrics .wx-tok').first()).toHaveText('til 8:00 PM');
+  await expect(page.locator('#wxSub')).toContainText('til 8:00 PM');
   expect(errors).toEqual([]);
 
   const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light' });
@@ -61,7 +61,7 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await context.close();
 });
 
-test('weather row folds in live temperature, UV and PM2.5 as compact colour-coded chips', async ({ page }) => {
+test('weather row shows live temperature, UV and PM2.5 as three colour-coded stats', async ({ page }) => {
   const errors = await openArtifact(page);
   await expect(page.locator('#wxRow')).toBeVisible();
   // override the fixture's forecast wildcard for the three real-time endpoints with realistic shapes
@@ -72,9 +72,9 @@ test('weather row folds in live temperature, UV and PM2.5 as compact colour-code
   await page.route('**/pm25', route => route.fulfill({ status: 200, contentType: 'application/json',
     body: JSON.stringify({ code: 0, data: { regionMetadata: [{ name: 'central', labelLocation: { latitude: 1.30, longitude: 103.85 } }], items: [{ readings: { pm25_one_hourly: { central: 70 } } }] } }) }));
   await page.evaluate(() => loadEnv(true));
-  await expect(page.locator('#wxMain')).toContainText('31°C');                                   // temperature folds into the main line
-  await expect(page.locator('#wxMetrics .wx-tok[data-tone="bad"]').filter({ hasText: 'UV 9' })).toBeVisible();     // UV 9 = very high
-  await expect(page.locator('#wxMetrics .wx-tok[data-tone="warn"]').filter({ hasText: 'PM2.5 70' })).toBeVisible(); // 70 µg/m³ = elevated
+  await expect(page.locator('#wxStats .wx-stat').filter({ hasText: 'Temp' })).toContainText('31°');
+  await expect(page.locator('#wxStats .wx-stat[data-tone="bad"]').filter({ hasText: 'UV v.high' })).toContainText('9');    // UV 9 = very high
+  await expect(page.locator('#wxStats .wx-stat[data-tone="warn"]').filter({ hasText: 'PM2.5 mod' })).toContainText('70');   // 70 µg/m³ = elevated
   expect(errors).toEqual([]);
 });
 
@@ -395,6 +395,26 @@ test('leaving the planner mid-ride warns instead of tearing navigation down', as
   expect(await page.evaluate(() => navActive)).toBe(true);
   expect(await page.evaluate(() => routeMode)).toBe(true);
   expect(await page.evaluate(() => Boolean(routeResult))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('once located, the nearest park connector shows as its own informative row', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.waitForFunction(() => Array.isArray(PCN_FEATURES) && PCN_FEATURES.length > 0);
+  await page.evaluate(() => geo.trigger());   // locate (the fixture feeds a fixed position)
+  await expect(page.locator('#connRow')).toBeVisible();
+  await expect(page.locator('#connMain')).toContainText('away');
+  await expect(page.locator('#connSub')).toContainText('Nearest connector');
+  expect(errors).toEqual([]);
+});
+
+test('tapping the collapsed dock handle expands it without ghost-starting a recording', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.evaluate(() => setDock(true));
+  await expect(page.locator('#dock')).toHaveClass(/collapsed/);
+  await page.locator('#dockHandle').click();
+  await expect(page.locator('#dock')).not.toHaveClass(/collapsed/);   // tap expands…
+  expect(await page.evaluate(() => recording)).toBe(false);           // …and must not start a ride
   expect(errors).toEqual([]);
 });
 

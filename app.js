@@ -58,7 +58,8 @@ map.touchZoomRotate.enableRotation();  // two-finger twist rotates the map
 
 const geo = new maplibregl.GeolocateControl({
   positionOptions:{enableHighAccuracy:true, timeout:15000, maximumAge:2000},
-  trackUserLocation:true, showUserHeading:true, showAccuracyCircle:true
+  trackUserLocation:true, showUserHeading:false, showAccuracyCircle:true,  // heading is our own .user-arrow; MapLibre's beam lingered after locate-off
+  fitBoundsOptions:{ maxZoom:16, offset:[0, -Math.round(innerHeight*0.13)] } // dot ~2/5 from top, clear of the panel
 });
 map.addControl(geo, 'top-right'); // its default button is hidden via CSS; we drive it from our FAB
 geo.on('geolocate', onPos);
@@ -445,9 +446,22 @@ function computeNearest(){
   }
   nearest = bp ? {lng:bp[0], lat:bp[1], dist:Math.sqrt(best), loop:bl} : null;
 }
-// nearest-connector distance now surfaces only in the collapsed peek; formatter avoids a DOM round-trip
 function nearDistLabel(){ if(!nearest) return ''; const d=nearest.dist; return d<1000 ? Math.round(d)+' m' : (d/1000).toFixed(2)+' km'; }
-function updateNearUI(){ updatePeek(); }
+// Once located, the nearest park connector gets its own informative row (sibling of the rack row).
+function updateNearUI(){
+  const row=$('connRow');
+  if(row){
+    if(!nearest){ row.hidden=true; }
+    else{
+      row.hidden=false;
+      $('connMain').textContent = nearDistLabel()+' away';
+      const nm = (nearest.loop>=0 && META && META.loops) ? META.loops[nearest.loop].name : 'a park path';
+      $('connSub').textContent = 'Nearest connector · '+nm;
+    }
+  }
+  updatePeek();
+}
+$('connRow') && $('connRow').addEventListener('click', ()=>{ if(nearest) map.easeTo({center:[nearest.lng,nearest.lat], zoom:Math.max(map.getZoom(),15.5), duration:600}); });
 // Where can I actually leave the bike? The natural sibling of "nearest park connector".
 function computeNearestRack(){
   if(!user || !RACK_FEATURES.length || !racksVisible){ nearRack=null; return; }
@@ -556,8 +570,8 @@ function wxGoLabel(sev){
   }
 }
 // ---------- live environment readings (NEA real-time · air temperature / UV / PM2.5) ----------
-// Same CORS-open host as the forecast; the service worker network-firsts it, so these degrade to the
-// last snapshot offline. Raw readings (with coords) are stored; the nearest-to-rider is picked at render.
+// Same CORS-open host as the forecast (SW network-firsts it → last snapshot offline). Raw readings
+// with coords are stored; the nearest-to-rider is picked at render.
 const ENV_URLS={ temp:'https://api-open.data.gov.sg/v2/real-time/api/air-temperature',
                  uv:'https://api-open.data.gov.sg/v2/real-time/api/uv',
                  pm25:'https://api-open.data.gov.sg/v2/real-time/api/pm25' };
@@ -600,26 +614,27 @@ function nearReading(arr){   // nearest reading to the rider, or the islandwide 
   for(const a of arr){ const dx=(a.lng-user.lng)*mLng, dy=(a.lat-user.lat)*mLat, d=dx*dx+dy*dy; if(d<best){best=d;b=a;} }
   return b?b.value:null;
 }
-const uvBand=v=>v>=8?'bad':v>=3?'warn':'good';        // 0-2 low · 3-7 moderate–high · 8+ very high+
-const pmBand=v=>v>150?'bad':v>55?'warn':'good';       // NEA 1-hour PM2.5 bands (µg/m³)
+const uvBand=v=>v>=8?'bad':v>=3?'warn':'good', uvWord=v=>v>=8?'v.high':v>=6?'high':v>=3?'mod':'low';
+const pmBand=v=>v>150?'bad':v>55?'warn':'good', pmWord=v=>v>150?'high':v>55?'mod':'good';  // NEA 1-hr µg/m³ bands
+function wxStat(val,label,tone){ return `<div class="wx-stat"${tone?` data-tone="${tone}"`:''}><span class="v">${val}</span><span class="k">${label}</span></div>`; }
 function updateWxUI(){
   const row=$('wxRow');
   if(!WX||!WX.areas.length){ row.hidden=true; updatePeek(); return; }
-  const cond = user ? nearestForecast(user.lat,user.lng).forecast : wxModal();
-  const info=wxInfo(cond), end=wxEndLabel(), go=wxGoLabel(info.sev);
-  const temp = ENV ? nearReading(ENV.temp) : null;
+  const nf = user ? nearestForecast(user.lat,user.lng) : null;
+  const cond = nf ? nf.forecast : wxModal();
+  const place = nf ? nf.area : 'Islandwide';
+  const info=wxInfo(cond), end=wxEndLabel(), go=wxGoLabel(info.sev), wet=['rain','heavy','storm'].includes(info.sev);
   $('wxIc').textContent=info.emoji;
-  $('wxMain').textContent = cond + (temp!=null ? ' · '+Math.round(temp)+'°C' : '');
-  // compact metric chips: rain window (when wet) + UV + PM2.5; the card's left rail carries the go/no-go colour
-  const toks=[];
-  if(['rain','heavy','storm'].includes(info.sev) && end) toks.push(`<span class="wx-tok" data-tone="${info.sev==='rain'?'warn':'bad'}">til ${esc(end)}</span>`);
-  if(ENV){
-    if(ENV.uv!=null) toks.push(`<span class="wx-tok" data-tone="${uvBand(ENV.uv)}">UV ${Math.round(ENV.uv)}</span>`);
-    const pm=nearReading(ENV.pm25); if(pm!=null) toks.push(`<span class="wx-tok" data-tone="${pmBand(pm)}">PM2.5 ${Math.round(pm)}</span>`);
-  }
-  if(wxIsStale()) toks.push('<span class="wx-tok">offline</span>');
-  if(!toks.length) toks.push(`<span class="wx-tok" data-tone="${go.sev==='safe'?'good':''}">${esc(go.label)}</span>`);   // verdict fallback until readings land
-  $('wxMetrics').innerHTML = toks.join('');
+  $('wxMain').textContent=cond;
+  // sub-line: where · (rain window when wet, else verdict) · offline flag
+  const sub=[place, wet && end ? 'til '+end : go.label]; if(wxIsStale()) sub.push('offline');
+  $('wxSub').textContent = sub.join(' · ');
+  // three stats across the card: temperature, UV, PM2.5 (— when unavailable)
+  const temp = ENV ? nearReading(ENV.temp) : null, uv = ENV ? ENV.uv : null, pm = ENV ? nearReading(ENV.pm25) : null;
+  $('wxStats').innerHTML =
+    wxStat(temp!=null?Math.round(temp)+'°':'—', 'Temp', '') +
+    wxStat(uv!=null?Math.round(uv):'—', uv!=null?'UV '+uvWord(uv):'UV night', uv!=null?uvBand(uv):'') +
+    wxStat(pm!=null?Math.round(pm):'—', pm!=null?'PM2.5 '+pmWord(pm):'PM2.5', pm!=null?pmBand(pm):'');
   row.dataset.sev=go.sev; row.hidden=false;
   updatePeek();
 }
@@ -1615,33 +1630,36 @@ updateCompassIcon();
 updateWxUI();            // show last snapshot instantly (if any)
 loadWeather();          // then refresh in the background when online
 loadEnv();              // live air temp / UV / PM2.5 for the weather row
-// Draggable dock: pull the handle up to expand or down to collapse; a plain tap still toggles.
+// Draggable dock. A pure tap toggles via a real click on the handle (not pointerup), so the dock
+// growing upward can't slide a button under the finger and steal a ghost-click. Drags rAF-coalesced.
 (function(){
   const dock=$('dock'), handle=$('dockHandle');
-  let startY=0, dy=0, dragging=false, moved=false;
+  let startY=0, dy=0, dragging=false, moved=false, raf=0;
+  function draw(){ raf=0; dock.style.transform='translateY('+dy+'px)'; }
   handle.addEventListener('pointerdown', e=>{
     if(e.pointerType==='mouse' && e.button!==0) return;
     dragging=true; moved=false; startY=e.clientY; dy=0;
-    dock.classList.add('dragging');
-    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
   });
   handle.addEventListener('pointermove', e=>{
     if(!dragging) return;
-    dy=e.clientY-startY; if(Math.abs(dy)>5) moved=true;
+    const raw=e.clientY-startY;
+    if(!moved){ if(Math.abs(raw)<6) return; moved=true; dock.classList.add('dragging'); try{ handle.setPointerCapture(e.pointerId); }catch(_){} }
     const collapsed=dock.classList.contains('collapsed');
-    const t=Math.max(-300, Math.min(300, collapsed ? Math.min(0,dy) : Math.max(0,dy)));   // follow one way
-    dock.style.transform='translateY('+t+'px)';
+    dy=Math.max(-320, Math.min(320, collapsed ? Math.min(0,raw) : Math.max(0,raw)));
+    if(!raf) raf=requestAnimationFrame(draw);
   });
   function end(){
     if(!dragging) return; dragging=false;
+    if(!moved) return;                                       // tap → the click handler toggles
+    if(raf){ cancelAnimationFrame(raf); raf=0; }
     dock.classList.remove('dragging'); dock.style.transform='';
     const collapsed=dock.classList.contains('collapsed');
-    if(!moved){ setDock(!collapsed); return; }              // tap = toggle
-    if(collapsed && dy<-40) setDock(false);                 // pulled up → expand
-    else if(!collapsed && dy>40) setDock(true);             // pushed down → collapse
+    if(collapsed && dy<-40) setDock(false);                  // pull up → expand, push down → collapse
+    else if(!collapsed && dy>40) setDock(true);
   }
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
+  handle.addEventListener('click', ()=>{ if(!moved) setDock(!dock.classList.contains('collapsed')); });
 })();
 if(matchMedia('(max-width:560px)').matches){ legend.classList.add('collapsed'); lgHead.setAttribute('aria-expanded','false'); }
 updatePeek();

@@ -172,7 +172,7 @@ body{
 /* ---- v34: calmer dock ---- */
 /* draggable dock: the handle drives a pull-to-resize; the transform snaps back on release */
 .dock{transition:transform .22s cubic-bezier(.2,.8,.2,1)}
-.dock.dragging{transition:none}
+.dock.dragging{transition:none;will-change:transform}
 .dock-handle{touch-action:none}
 /* Plan a ride — the primary action, anchoring the default dock */
 .dk-plan{width:100%;min-height:52px;margin-top:12px;font-size:15.5px;font-weight:800;border-radius:14px;
@@ -183,15 +183,27 @@ body{
   align-items:center;justify-content:center;background:transparent;border:0;color:var(--ink-dim);
   font:inherit;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--ui);text-align:center}
 .dk-reclink:active{transform:scale(.98)}
-/* merged weather + go/no-go row: a coloured left rail and the verdict word carry the severity */
-.wx-merged{border-left:3px solid var(--line)}
-.wx-go{font-weight:800}
-.wx-merged[data-sev="safe"]{border-left-color:var(--wx-safe)}   .wx-merged[data-sev="safe"] .wx-go{color:var(--wx-safe)}
-.wx-merged[data-sev="rain"]{border-left-color:var(--wx-rain)}   .wx-merged[data-sev="rain"] .wx-go{color:var(--wx-rain)}
-.wx-merged[data-sev="heavy"]{border-left-color:var(--wx-heavy)} .wx-merged[data-sev="heavy"] .wx-go{color:var(--wx-heavy)}
-.wx-merged[data-sev="storm"]{border-left-color:var(--wx-storm)} .wx-merged[data-sev="storm"] .wx-go{color:var(--wx-storm)}
-.wx-merged[data-sev="haze"]{border-left-color:var(--wx-haze)}   .wx-merged[data-sev="haze"] .wx-go{color:var(--wx-haze)}
-.wx-merged[data-sev="mist"]{border-left-color:var(--wx-mist)}   .wx-merged[data-sev="mist"] .wx-go{color:var(--wx-mist)}
+/* weather row: a header (icon · condition · refresh) over three evenly-spread stats; the coloured
+   left rail carries the rain go/no-go severity */
+.wx-merged{flex-direction:column;align-items:stretch;gap:10px;border-left:3px solid var(--line)}
+.wx-merged[data-sev="safe"]{border-left-color:var(--wx-safe)}
+.wx-merged[data-sev="rain"]{border-left-color:var(--wx-rain)}
+.wx-merged[data-sev="heavy"]{border-left-color:var(--wx-heavy)}
+.wx-merged[data-sev="storm"]{border-left-color:var(--wx-storm)}
+.wx-merged[data-sev="haze"]{border-left-color:var(--wx-haze)}
+.wx-merged[data-sev="mist"]{border-left-color:var(--wx-mist)}
+.wx-head{display:flex;align-items:center;gap:11px}
+.wx-stats{display:flex;border-top:1px solid var(--line);padding-top:9px}
+.wx-stat{flex:1;display:flex;flex-direction:column;gap:2px;align-items:center;text-align:center;padding:0 2px;min-width:0}
+.wx-stat + .wx-stat{border-left:1px solid var(--line)}
+.wx-stat .v{font-family:var(--mono);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.05}
+.wx-stat .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.wx-stat[data-tone="good"] .v{color:var(--wx-safe)} .wx-stat[data-tone="warn"] .v{color:var(--wx-haze)} .wx-stat[data-tone="bad"] .v{color:var(--rec)}
+.wx-stat[data-tone="good"] .k{color:var(--wx-safe)} .wx-stat[data-tone="warn"] .k{color:var(--wx-haze)} .wx-stat[data-tone="bad"] .k{color:var(--rec)}
+/* nearest-connector row — same card idiom as the rack row, with an accent location-pin badge */
+.conn-ic{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text);flex:0 0 auto}
+.conn-ic svg{width:15px;height:15px}
+.conn-card{cursor:pointer}
 /* Compass + Record join the FAB stack only during a ride (GO) */
 .fab.go-only{display:none}
 .fabs.riding .fab.go-only{display:grid;animation:fabpop .28s cubic-bezier(.2,.9,.3,1.4) both}
@@ -213,12 +225,6 @@ body{
 .wx-tx{display:flex;flex-direction:column;min-width:0;flex:1;gap:1px}
 .wx-main{font-weight:650;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wx-sub{font-size:12px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* compact live-reading chips in the weather row (rain window · UV · PM2.5) */
-.wx-metrics{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
-.wx-tok{font-size:10.5px;font-weight:700;line-height:1;padding:3px 7px;border-radius:999px;background:var(--panel-solid);border:1px solid var(--line);color:var(--ink-dim);white-space:nowrap}
-.wx-tok[data-tone="good"]{color:var(--wx-safe);border-color:color-mix(in srgb,var(--wx-safe) 42%,transparent)}
-.wx-tok[data-tone="warn"]{color:var(--wx-haze);border-color:color-mix(in srgb,var(--wx-haze) 42%,transparent)}
-.wx-tok[data-tone="bad"]{color:var(--rec);border-color:color-mix(in srgb,var(--rec) 42%,transparent)}
 .wx-rf{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:var(--ink-dim);cursor:pointer;padding:6px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center}
 .wx-rf svg{width:15px;height:15px}
 .wx-rf:active{transform:scale(.88)}
