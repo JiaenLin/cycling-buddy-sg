@@ -579,7 +579,7 @@ let ENV=null, envLoading=null;
 try{ const s=JSON.parse(localStorage.getItem('env')||'null'); if(s) ENV=s; }catch(e){}
 function parseTemp(j){
   if(!j||j.code!==0||!j.data) return null;
-  const st={}; (j.data.stations||[]).forEach(s=>{ const L=s.labelLocation||{}; if(L.latitude!=null) st[s.id]={lat:L.latitude,lng:L.longitude}; });
+  const st={}; (j.data.stations||[]).forEach(s=>{ const L=s.location||{}; if(L.latitude!=null) st[s.id]={lat:L.latitude,lng:L.longitude}; });
   const rd=((j.data.readings||[])[0]||{}).data||[]; const out=[];
   for(const r of rd){ const c=st[r.stationId]; if(c&&Number.isFinite(r.value)) out.push({lat:c.lat,lng:c.lng,value:r.value}); }
   return out.length?out:null;
@@ -616,7 +616,7 @@ function nearReading(arr){   // nearest reading to the rider, or the islandwide 
 }
 const uvBand=v=>v>=8?'bad':v>=3?'warn':'good', uvWord=v=>v>=8?'v.high':v>=6?'high':v>=3?'mod':'low';
 const pmBand=v=>v>150?'bad':v>55?'warn':'good', pmWord=v=>v>150?'high':v>55?'mod':'good';  // NEA 1-hr µg/m³ bands
-function wxStat(val,label,tone){ return `<div class="wx-stat"${tone?` data-tone="${tone}"`:''}><span class="v">${val}</span><span class="k">${label}</span></div>`; }
+function wxStat(val,word,label,tone){ return `<div class="wx-stat"${tone?` data-tone="${tone}"`:''}><span class="v">${val}${word?`<em>${word}</em>`:''}</span><span class="k">${label}</span></div>`; }
 function updateWxUI(){
   const row=$('wxRow');
   if(!WX||!WX.areas.length){ row.hidden=true; updatePeek(); return; }
@@ -624,17 +624,19 @@ function updateWxUI(){
   const cond = nf ? nf.forecast : wxModal();
   const place = nf ? nf.area : 'Islandwide';
   const info=wxInfo(cond), end=wxEndLabel(), go=wxGoLabel(info.sev), wet=['rain','heavy','storm'].includes(info.sev);
+  const temp = ENV ? nearReading(ENV.temp) : null, uv = ENV ? ENV.uv : null, pm = ENV ? nearReading(ENV.pm25) : null;
   $('wxIc').textContent=info.emoji;
+  // temperature leads the header (big, next to the condition) so the row reads at a glance
+  const tEl=$('wxTemp'); tEl.textContent = temp!=null ? Math.round(temp)+'°' : ''; tEl.hidden = temp==null;
   $('wxMain').textContent=cond;
   // sub-line: where · (rain window when wet, else verdict) · offline flag
   const sub=[place, wet && end ? 'til '+end : go.label]; if(wxIsStale()) sub.push('offline');
   $('wxSub').textContent = sub.join(' · ');
-  // three stats across the card: temperature, UV, PM2.5 (— when unavailable)
-  const temp = ENV ? nearReading(ENV.temp) : null, uv = ENV ? ENV.uv : null, pm = ENV ? nearReading(ENV.pm25) : null;
+  // two stats fill the width beneath the header: UV and PM2.5 (— when unavailable). The qualitative
+  // word rides beside the number (color-toned); the label is just the short metric name so nothing clips.
   $('wxStats').innerHTML =
-    wxStat(temp!=null?Math.round(temp)+'°':'—', 'Temp', '') +
-    wxStat(uv!=null?Math.round(uv):'—', uv!=null?'UV '+uvWord(uv):'UV night', uv!=null?uvBand(uv):'') +
-    wxStat(pm!=null?Math.round(pm):'—', pm!=null?'PM2.5 '+pmWord(pm):'PM2.5', pm!=null?pmBand(pm):'');
+    wxStat(uv!=null?Math.round(uv):'—', uv!=null?uvWord(uv):'night', 'UV', uv!=null?uvBand(uv):'') +
+    wxStat(pm!=null?Math.round(pm):'—', pm!=null?pmWord(pm):'', 'PM2.5', pm!=null?pmBand(pm):'');
   row.dataset.sev=go.sev; row.hidden=false;
   updatePeek();
 }
@@ -988,8 +990,20 @@ function fillStats(){
 // ---------- views / dock ----------
 const views={viewNearest:$('viewNearest'),viewRec:$('viewRec'),viewSum:$('viewSum'),viewRoute:$('viewRoute')};
 function show(v){ for(const k in views) views[k].hidden = (k!==v); updatePeek(); setDockH(); }
-function setDockH(){ document.documentElement.style.setProperty('--dockh', ($('dock').offsetHeight+14)+'px'); }
-function setDock(collapsed){ $('dock').classList.toggle('collapsed', collapsed); $('dockHandle').setAttribute('aria-expanded', String(!collapsed)); updatePeek(); setDockH(); }
+function setDockH(){
+  const dock=$('dock'), handleH=$('dockHandle').offsetHeight, full=dock.offsetHeight;
+  const cdy=Math.max(0, full-handleH);   // slide distance to hide the body below the fold
+  const rs=document.documentElement.style;
+  rs.setProperty('--cdy', cdy+'px');
+  // on-screen height drives the FAB / weather-cap offset: just the handle when collapsed, else the sheet
+  rs.setProperty('--dockh', ((dock.classList.contains('collapsed')?handleH:full)+14)+'px');
+}
+function setDock(collapsed){
+  $('dock').classList.toggle('collapsed', collapsed);
+  $('dockHandle').setAttribute('aria-expanded', String(!collapsed));
+  $('dockBody').inert = !!collapsed;   // keep the off-screen sheet out of tab order / the a11y tree
+  updatePeek(); setDockH();
+}
 function wxPeekIcon(){
   if(!WX || !WX.areas.length) return '';
   const cond = user ? nearestForecast(user.lat,user.lng).forecast : wxModal();
@@ -1634,25 +1648,28 @@ loadEnv();              // live air temp / UV / PM2.5 for the weather row
 // growing upward can't slide a button under the finger and steal a ghost-click. Drags rAF-coalesced.
 (function(){
   const dock=$('dock'), handle=$('dockHandle');
-  let startY=0, dy=0, dragging=false, moved=false, raf=0;
-  function draw(){ raf=0; dock.style.transform='translateY('+dy+'px)'; }
+  let startY=0, base=0, cdy=0, dy=0, dragging=false, moved=false, raf=0;
+  // the drag lives entirely within [0 (expanded) … cdy (collapsed)]; clamping there keeps the sheet
+  // welded to the bottom edge so no gap ever opens beneath it.
+  function draw(){ raf=0; dock.style.transform='translateY('+Math.max(0,Math.min(cdy, base+dy))+'px)'; }
   handle.addEventListener('pointerdown', e=>{
     if(e.pointerType==='mouse' && e.button!==0) return;
     dragging=true; moved=false; startY=e.clientY; dy=0;
+    cdy=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cdy'))||dock.offsetHeight;
+    base=dock.classList.contains('collapsed')?cdy:0;
   });
   handle.addEventListener('pointermove', e=>{
     if(!dragging) return;
     const raw=e.clientY-startY;
     if(!moved){ if(Math.abs(raw)<6) return; moved=true; dock.classList.add('dragging'); try{ handle.setPointerCapture(e.pointerId); }catch(_){} }
-    const collapsed=dock.classList.contains('collapsed');
-    dy=Math.max(-320, Math.min(320, collapsed ? Math.min(0,raw) : Math.max(0,raw)));
+    dy=raw;
     if(!raf) raf=requestAnimationFrame(draw);
   });
   function end(){
     if(!dragging) return; dragging=false;
     if(!moved) return;                                       // tap → the click handler toggles
     if(raf){ cancelAnimationFrame(raf); raf=0; }
-    dock.classList.remove('dragging'); dock.style.transform='';
+    dock.classList.remove('dragging'); dock.style.transform='';   // hand back to the class-driven resting transform
     const collapsed=dock.classList.contains('collapsed');
     if(collapsed && dy<-40) setDock(false);                  // pull up → expand, push down → collapse
     else if(!collapsed && dy>40) setDock(true);

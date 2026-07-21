@@ -155,7 +155,6 @@ body{
 .dock-peek{font-size:12.5px;font-weight:700;color:var(--ink-dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dock:not(.collapsed) .dock-peek{display:none}
 .dock-body{padding:2px 16px 14px;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:52vh}
-.dock.collapsed .dock-body{display:none}
 .dk-label{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;display:flex;align-items:center;gap:7px}
 .dk-main{display:flex;align-items:baseline;gap:12px;margin-top:6px;flex-wrap:wrap}
 .dk-big{font-family:var(--mono);font-size:34px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;line-height:1}
@@ -169,9 +168,11 @@ body{
 .stat .v{font-family:var(--mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
 .stat .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
 
-/* ---- v34: calmer dock ---- */
-/* draggable dock: the handle drives a pull-to-resize; the transform snaps back on release */
-.dock{transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+/* ---- v34: calmer dock · v38: proper bottom-sheet drag ---- */
+/* The sheet is always full-height; collapsing slides it DOWN by its own body height (--cdy) so it
+   stays welded to the bottom edge and never floats a gap beneath itself during a drag. */
+.dock{transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+.dock.collapsed{transform:translateY(var(--cdy,220px))}
 .dock.dragging{transition:none;will-change:transform}
 .dock-handle{touch-action:none}
 /* Plan a ride — the primary action, anchoring the default dock */
@@ -192,12 +193,15 @@ body{
 .wx-merged[data-sev="storm"]{border-left-color:var(--wx-storm)}
 .wx-merged[data-sev="haze"]{border-left-color:var(--wx-haze)}
 .wx-merged[data-sev="mist"]{border-left-color:var(--wx-mist)}
-.wx-head{display:flex;align-items:center;gap:11px}
-.wx-stats{display:flex;border-top:1px solid var(--line);padding-top:9px}
-.wx-stat{flex:1;display:flex;flex-direction:column;gap:2px;align-items:center;text-align:center;padding:0 2px;min-width:0}
+.wx-head{display:flex;align-items:center;gap:10px}
+.wx-temp{font-family:var(--mono);font-size:27px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink);flex:0 0 auto}
+.wx-temp[hidden]{display:none}
+.wx-stats{display:flex;border-top:1px solid var(--line);margin-top:9px;padding-top:10px}
+.wx-stat{flex:1;display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;padding:0 4px;min-width:0}
 .wx-stat + .wx-stat{border-left:1px solid var(--line)}
-.wx-stat .v{font-family:var(--mono);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.05}
-.wx-stat .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.wx-stat .v{font-family:var(--mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.05;display:inline-flex;align-items:baseline;gap:5px}
+.wx-stat .v em{font-family:var(--ui);font-style:normal;font-size:11px;font-weight:700;letter-spacing:.01em;text-transform:capitalize}
+.wx-stat .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .wx-stat[data-tone="good"] .v{color:var(--wx-safe)} .wx-stat[data-tone="warn"] .v{color:var(--wx-haze)} .wx-stat[data-tone="bad"] .v{color:var(--rec)}
 .wx-stat[data-tone="good"] .k{color:var(--wx-safe)} .wx-stat[data-tone="warn"] .k{color:var(--wx-haze)} .wx-stat[data-tone="bad"] .k{color:var(--rec)}
 /* nearest-connector row — same card idiom as the rack row, with an accent location-pin badge */
@@ -444,7 +448,7 @@ body{
   .brand .wm b{font-size:17px}
   .brand .wm span{display:none}
   .dock{left:0;right:0;bottom:0;margin:0;max-width:none;border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0}
-  .dock-body{max-height:58vh;padding-bottom:calc(env(safe-area-inset-bottom) + 14px);overflow-x:hidden}
+  .dock-body{max-height:58vh;padding-bottom:calc(env(safe-area-inset-bottom) + 6px);overflow-x:hidden}
   .dock-handle{padding-top:11px}
   .stat + .stat{padding-left:11px;margin-left:11px}
   .stat .v{font-size:16px}

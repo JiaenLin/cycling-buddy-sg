@@ -61,20 +61,21 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await context.close();
 });
 
-test('weather row shows live temperature, UV and PM2.5 as three colour-coded stats', async ({ page }) => {
+test('weather row leads with live temperature and shows UV + PM2.5 as colour-coded stats', async ({ page }) => {
   const errors = await openArtifact(page);
   await expect(page.locator('#wxRow')).toBeVisible();
-  // override the fixture's forecast wildcard for the three real-time endpoints with realistic shapes
+  // override the fixture's forecast wildcard for the three real-time endpoints with realistic shapes.
+  // air-temperature stations carry coords under `location` (not `labelLocation`, which only pm25 uses).
   await page.route('**/air-temperature', route => route.fulfill({ status: 200, contentType: 'application/json',
-    body: JSON.stringify({ code: 0, data: { stations: [{ id: 'S1', labelLocation: { latitude: 1.30, longitude: 103.85 } }], readings: [{ data: [{ stationId: 'S1', value: 31 }] }] } }) }));
+    body: JSON.stringify({ code: 0, data: { stations: [{ id: 'S1', location: { latitude: 1.30, longitude: 103.85 } }], readings: [{ data: [{ stationId: 'S1', value: 31 }] }] } }) }));
   await page.route('**/uv', route => route.fulfill({ status: 200, contentType: 'application/json',
     body: JSON.stringify({ code: 0, data: { records: [{ index: [{ hour: 'now', value: 9 }] }] } }) }));
   await page.route('**/pm25', route => route.fulfill({ status: 200, contentType: 'application/json',
     body: JSON.stringify({ code: 0, data: { regionMetadata: [{ name: 'central', labelLocation: { latitude: 1.30, longitude: 103.85 } }], items: [{ readings: { pm25_one_hourly: { central: 70 } } }] } }) }));
   await page.evaluate(() => loadEnv(true));
-  await expect(page.locator('#wxStats .wx-stat').filter({ hasText: 'Temp' })).toContainText('31°');
-  await expect(page.locator('#wxStats .wx-stat[data-tone="bad"]').filter({ hasText: 'UV v.high' })).toContainText('9');    // UV 9 = very high
-  await expect(page.locator('#wxStats .wx-stat[data-tone="warn"]').filter({ hasText: 'PM2.5 mod' })).toContainText('70');   // 70 µg/m³ = elevated
+  await expect(page.locator('#wxTemp')).toContainText('31°');                                                            // temp leads the header
+  await expect(page.locator('#wxStats .wx-stat[data-tone="bad"]').filter({ hasText: 'UV' })).toContainText('9');         // UV 9 = very high
+  await expect(page.locator('#wxStats .wx-stat[data-tone="warn"]').filter({ hasText: 'PM2.5' })).toContainText('70');    // 70 µg/m³ = elevated
   expect(errors).toEqual([]);
 });
 
