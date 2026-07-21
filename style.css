@@ -274,6 +274,15 @@ body{
 .rt-notice{display:flex;align-items:center;gap:9px;margin-top:10px;padding:9px 11px;border-radius:11px;font-size:12.5px;font-weight:600;line-height:1.3;
   background:color-mix(in srgb,#F79009 15%,var(--panel-2));border:1px solid color-mix(in srgb,#F79009 45%,transparent);color:var(--ink)}
 .rt-notice svg{width:19px;height:19px;flex:0 0 auto;stroke:#F79009;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* v39: canal/river bridges + underpasses the planned route rides, in order */
+.rt-cross{margin-top:10px;padding:9px 11px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
+.rt-cross[hidden]{display:none}
+.rt-cross-head{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;margin-bottom:8px}
+.rt-cross-list{display:flex;flex-wrap:wrap;gap:6px}
+.rt-cross-item{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--panel-solid);border:1px solid var(--line);border-radius:9px;padding:4px 9px}
+.rt-cross-item svg{width:15px;height:15px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rt-cross-item[data-k="bridge"] svg{color:var(--accent-text)}
+.rt-cross-item[data-k="underpass"] svg{color:var(--ink-dim)}
 .rt-key{display:flex;gap:13px;margin-top:10px;flex-wrap:wrap}
 .rt-key span{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-dim)}
 .rt-key i{width:15px;height:4px;border-radius:2px;display:inline-block}

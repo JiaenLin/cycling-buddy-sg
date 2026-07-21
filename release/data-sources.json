@@ -67,5 +67,13 @@
     "fusion": "build/fuse_graph.mjs — gap-fill of NParks PCN, LTA CPN and the open rail corridor into the routable graph (COVER=18m, WELD=35m)",
     "licence": "OpenStreetMap ODbL; NParks/LTA under the Singapore Open Data Licence",
     "note": "Derived artifact (OSM base + fused official geometry); a full rebuild needs the raw OSM download, so graph.json is not reproducible from the repository alone."
+  },
+  "crossings": {
+    "output": "data/crossings.json",
+    "builder": "build/build_crossings.mjs",
+    "base": "OpenStreetMap via Overpass (waterway=river|canal; highway cycle/foot ways with tunnel=yes) intersected/matched with data/pcn.lines.geojson + data/cpn.lines.geojson",
+    "licence": "OpenStreetMap ODbL; NParks/LTA cycling network under the Singapore Open Data Licence",
+    "snapshotAt": "2026-07-21",
+    "note": "Route-annotation points only (bridges over rivers/canals; road underpasses on the PCN), not a map layer. Derived artifact needing a live Overpass fetch, so like graph.json it is not reproducible from the repository alone; the committed snapshot is the reviewed one."
   }
 }

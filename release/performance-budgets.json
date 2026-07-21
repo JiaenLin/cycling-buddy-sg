@@ -10,7 +10,7 @@
     "notes": "Deterministic local server, mocked basemap/weather and cold browser cache; route-cold includes graph transfer."
   },
   "assetBytes": {
-    "allApprovedRuntimeMax": 11400000,
+    "allApprovedRuntimeMax": 11450000,
     "offlineShellMax": 3200000,
     "routingGraphMax": 8000000,
     "vendoredRuntimeMax": 900000,

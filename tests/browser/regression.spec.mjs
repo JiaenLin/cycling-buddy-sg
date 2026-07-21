@@ -79,6 +79,28 @@ test('weather row leads with live temperature and shows UV + PM2.5 as colour-cod
   expect(errors).toEqual([]);
 });
 
+test('a planned route lists the canal/river bridges and underpasses it rides', async ({ page }) => {
+  const errors = await openArtifact(page);
+  await page.getByRole('button', { name: 'Plan a ride' }).click();
+  await page.waitForFunction(() => typeof CROSS !== 'undefined' && CROSS && CROSS.bridge.length > 0);
+  // drive a route through a named bridge and an underpass; the summary must list both, in order
+  const shown = await page.evaluate(() => {
+    const namedBridge = CROSS.bridge.find(b => b[2]);
+    const underpass = CROSS.underpass[0];
+    routeResult = { coords: [[namedBridge[0], namedBridge[1]], [underpass[0], underpass[1]]], directions: [], hasCarWay: false };
+    updateRouteCross();
+    const el = document.getElementById('rtCross');
+    return { hidden: el.hidden, head: el.querySelector('.rt-cross-head').textContent, name: namedBridge[2],
+      kinds: [...el.querySelectorAll('.rt-cross-item')].map(i => i.dataset.k), text: el.textContent };
+  });
+  expect(shown.hidden).toBe(false);
+  expect(shown.head).toContain('On your route');
+  expect(shown.kinds).toContain('bridge');
+  expect(shown.kinds).toContain('underpass');
+  expect(shown.text).toContain('over ' + shown.name);      // named bridge shows "over <waterway>"
+  expect(errors).toEqual([]);
+});
+
 test('plans a fixed route, exposes the road warning, and reports missing routing data', async ({ page, browser }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a ride' }).click();

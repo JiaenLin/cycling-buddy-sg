@@ -1,0 +1,17 @@
+{
+  "source": "OpenStreetMap via Overpass: waterway=river|canal intersected with the LTA/NParks cycling network (bridges); highway cycle/foot ways tagged tunnel=yes on that network (underpasses).",
+  "licence": "ODbL 1.0 (OpenStreetMap contributors); cycling network under the Singapore Open Data Licence",
+  "description": "Route-annotation points only (not a map layer): where a park connector bridges a river/canal, or dips into a road underpass. Consumed by the planner to label a planned route.",
+  "snapshotAt": "2026-07-21",
+  "builtFrom": "data/cpn.lines.geojson + data/pcn.lines.geojson + OSM waterways/tunnels",
+  "bridges": 239,
+  "bridgesNamed": 125,
+  "underpasses": 58,
+  "count": 297,
+  "bounds": [
+    103.70104,
+    1.27617,
+    104.01638,
+    1.4657
+  ]
+}

@@ -676,6 +676,57 @@ function updateRouteWx(){
   el.innerHTML=`<span class="wx-ic">${emoji}</span><span>${esc(txt)}</span>`;
   el.dataset.sev=sev; el.hidden=false;
 }
+// ---- route crossings (v39): the PCN's OWN canal/river bridges + road underpasses on this route ----
+// data/crossings.json = { bridge:[[lng,lat,name],…], underpass:[[lng,lat],…] } — OSM waterways ∩ the
+// cycling network (bridges) + tunnel=yes cycle/foot ways on it (underpasses). We flag only the ones the
+// planned route actually rides and list them in order along the way.
+let CROSS=null, crossLoading=null;
+function loadCrossings(){
+  if(CROSS) return Promise.resolve(CROSS);
+  if(crossLoading) return crossLoading;
+  crossLoading=fetch('data/crossings.json').then(r=>r.ok?r.json():null)
+    .then(j=>{ CROSS=j; if(views.viewRoute && !views.viewRoute.hidden) updateRouteCross(); return j; })
+    .catch(()=>null);
+  return crossLoading;
+}
+function routeCrossings(coords){
+  if(!CROSS||!coords||coords.length<2) return [];
+  const mLat=110540, mLng=111320*Math.cos(1.35*D2R), TH=30;   // ≤30 m from the route line counts as "on it"
+  const pts=coords.map(c=>[c[0]*mLng, c[1]*mLat]);
+  const cum=[0]; for(let i=1;i<pts.length;i++) cum[i]=cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
+  function onRoute(lng,lat){                                   // nearest distance to the route + distance along it
+    const px=lng*mLng, py=lat*mLat; let best=Infinity, along=0;
+    for(let i=1;i<pts.length;i++){ const ax=pts[i-1][0],ay=pts[i-1][1],dx=pts[i][0]-ax,dy=pts[i][1]-ay,L2=dx*dx+dy*dy;
+      let t=L2?((px-ax)*dx+(py-ay)*dy)/L2:0; t=t<0?0:t>1?1:t; const cx=ax+t*dx,cy=ay+t*dy, d=Math.hypot(px-cx,py-cy);
+      if(d<best){ best=d; along=cum[i-1]+t*Math.sqrt(L2); } }
+    return {d:best, along};
+  }
+  const hits=[];
+  for(const b of CROSS.bridge){ const r=onRoute(b[0],b[1]); if(r.d<=TH) hits.push({kind:'bridge', name:b[2]||null, along:r.along}); }
+  for(const u of CROSS.underpass){ const r=onRoute(u[0],u[1]); if(r.d<=TH) hits.push({kind:'underpass', name:null, along:r.along}); }
+  hits.sort((a,b)=>a.along-b.along);
+  // one physical crossing can span a few adjacent segments → collapse same kind+name within 120 m along
+  const out=[]; for(const h of hits){ const p=out[out.length-1]; if(p && p.kind===h.kind && p.name===h.name && h.along-p.along<120) continue; out.push(h); }
+  return out;
+}
+const CROSS_IC={
+  bridge:'<path d="M2 17h20"/><path d="M4 17c1.6-5.6 14.4-5.6 16 0"/><path d="M8 14.3V17M16 14.3V17"/>',
+  underpass:'<path d="M3 20v-7a9 9 0 0 1 18 0v7"/><path d="M3 16.4h18"/>'
+};
+function updateRouteCross(){
+  const el=$('rtCross'); if(!el) return;
+  const coords = routeResult && routeResult.coords;
+  if(views.viewRoute.hidden || !coords){ el.hidden=true; return; }
+  if(!CROSS){ loadCrossings(); el.hidden=true; return; }
+  const hits=routeCrossings(coords);
+  if(!hits.length){ el.hidden=true; return; }
+  const label=h=> h.kind==='bridge' ? (h.name?'over '+h.name:'Canal bridge') : 'Underpass';
+  const items=hits.map(h=>`<span class="rt-cross-item" data-k="${h.kind}"><svg viewBox="0 0 24 24" aria-hidden="true">${CROSS_IC[h.kind]}</svg>${esc(label(h))}</span>`).join('');
+  const nb=hits.filter(h=>h.kind==='bridge').length, nu=hits.length-nb;
+  const head=[nb?nb+' bridge'+(nb>1?'s':''):'', nu?nu+' underpass'+(nu>1?'es':''):''].filter(Boolean).join(' · ');
+  el.innerHTML=`<div class="rt-cross-head">On your route · ${esc(head)}</div><div class="rt-cross-list">${items}</div>`;
+  el.hidden=false;
+}
 const WX_ICONS=[['rain','🌦️'],['heavy','🌧️'],['storm','⛈️']];
 function wxEnsureIcons(){   // render weather emoji to canvas → map images (no asset files, offline-safe)
   const dpr=2, size=46;
@@ -1155,7 +1206,7 @@ function enterRoute(){
   if(recording){ toast('Stop recording first'); return; }
   exitHeading(false);
   routeMode=true; map.getCanvas().style.cursor='crosshair';
-  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); loadEnv(); updateGpsStatus();
+  show('viewRoute'); setDock(false); ensureGraph(); loadPostcodes(); loadWeather(); loadEnv(); loadCrossings(); updateGpsStatus();
   if(routeOptions){ renderRoutes(routeOptions); selectRoute(routeSel,false); }
   else resetRoutePanel();   // start is an explicit choice now (⌖ current location / search / tap) — no silent auto-fill
   updateFieldStates();
@@ -1186,7 +1237,7 @@ function updateMapHint(){
   // step guidance now lives in the glowing field + the #rtScope method line; keep this box out of the way
   const h=$('rtMapHint'); if(h) h.hidden=true;
 }
-function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
+function hideOptions(){ for(const id of ['rtOptions','rtDirs','rtNotice','rtWx','rtCross','rtActionBar','rtMenu']){ const e=$(id); if(e)e.hidden=true; } $('rtMoreBtn').setAttribute('aria-expanded','false'); setDockH(); }
 function resetRoutePanel(){ hideOptions(); routeOptions=null; routeEndName=null; const ts=$('rtSearch'); if(ts) ts.value=''; if(!routeStart) setFromLabel(''); hideResults('rtFromResults'); hideResults('rtResults'); renderChips(); updateMapHint(); rtHint(''); updateFieldStates(); updateRtControls(); }
 function hideResults(id){ const b=$(id); if(b){ b.hidden=true; b.textContent=''; b._hits=null; } }
 function setPoint(which,ll){
@@ -1268,7 +1319,7 @@ function selectRoute(k, fit){
   box.querySelectorAll('.rt-alt').forEach(el=>el.classList.toggle('sel', el.dataset.k===o.key));
   refreshRouteSource(); renderDirs(routeResult.directions);
   $('rtNotice').hidden = !routeResult.hasCarWay;
-  updateRouteWx(); updateRtControls(); updatePeek();
+  updateRouteWx(); updateRouteCross(); updateRtControls(); updatePeek();
   if(fit){ const b=new maplibregl.LngLatBounds(); routeResult.coords.forEach(c=>b.extend(c)); map.fitBounds(b,{padding:{top:110,bottom:300,left:50,right:50}}); }
 }
 const DIR_ICONS={
