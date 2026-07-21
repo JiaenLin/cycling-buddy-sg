@@ -41,7 +41,9 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   await page.evaluate(() => loadWeather(true));
   await expect(page.locator('#wxRow')).toBeVisible();
   await expect(page.locator('#wxMain')).toHaveText('Thundery Showers');
-  await expect(page.locator('#wxAdv')).toContainText('lightning risk');
+  // the advisory is merged into the weather row now: severity colours the rail + verdict word
+  await expect(page.locator('#wxRow')).toHaveAttribute('data-sev', 'storm');
+  await expect(page.locator('#wxRow .wx-go')).toHaveText('Thundery — hold off');
   expect(errors).toEqual([]);
 
   const context = await browser.newContext({ serviceWorkers: 'block', colorScheme: 'light' });
@@ -54,9 +56,7 @@ test('shows deterministic weather and fails closed when the live API is unavaila
   });
   await openArtifact(failurePage, { weatherFailure: true });
   await failurePage.evaluate(() => loadWeather(true));
-  await expect(failurePage.locator('#wxRow')).toBeHidden();
-  await expect(failurePage.locator('#wxAdv')).toHaveAttribute('hidden', '');
-  await expect(failurePage.locator('#wxAdv')).toHaveText('');
+  await expect(failurePage.locator('#wxRow')).toBeHidden();   // no forecast → the whole merged row (verdict included) stays hidden
   expect(failureResponses).toContain(503);
   await context.close();
 });
