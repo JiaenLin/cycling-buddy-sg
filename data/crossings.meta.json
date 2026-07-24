@@ -1,17 +1,19 @@
 {
-  "source": "OpenStreetMap via Overpass: waterway=river|canal intersected with the LTA/NParks cycling network (bridges); highway cycle/foot ways tagged tunnel=yes on that network (underpasses).",
+  "source": "OpenStreetMap via Overpass: waterway=river|canal intersected with the LTA/NParks cycling network (bridge crossings, named by the waterway), each spanned by its OSM bridge=yes cycle/foot way; highway cycle/foot ways tagged tunnel=yes on the network (underpasses, spanned by the tunnel way).",
   "licence": "ODbL 1.0 (OpenStreetMap contributors); cycling network under the Singapore Open Data Licence",
-  "description": "Route-annotation points only (not a map layer): where a park connector bridges a river/canal, or dips into a road underpass. Consumed by the planner to label a planned route.",
-  "snapshotAt": "2026-07-21",
-  "builtFrom": "data/cpn.lines.geojson + data/pcn.lines.geojson + OSM waterways/tunnels",
-  "bridges": 239,
-  "bridgesNamed": 125,
-  "underpasses": 58,
-  "count": 297,
+  "description": "Route-annotation spans (not a map layer): each entry is the structure's two ENDS [lng1,lat1,lng2,lat2(,name)], so the planner drops the icon at the entrance the rider approaches. Bridges add the waterway name.",
+  "snapshotAt": "2026-07-24",
+  "builtFrom": "data/cpn.lines.geojson + data/pcn.lines.geojson + OSM waterways/bridges/tunnels",
+  "format": "{ bridge:[[lng1,lat1,lng2,lat2,name],…], underpass:[[lng1,lat1,lng2,lat2],…] }",
+  "bridges": 235,
+  "bridgesNamed": 121,
+  "bridgesSpanned": 94,
+  "underpasses": 56,
+  "count": 291,
   "bounds": [
     103.70104,
-    1.27617,
-    104.01638,
-    1.4657
+    1.27612,
+    104.01679,
+    1.46567
   ]
 }

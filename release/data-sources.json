@@ -71,9 +71,9 @@
   "crossings": {
     "output": "data/crossings.json",
     "builder": "build/build_crossings.mjs",
-    "base": "OpenStreetMap via Overpass (waterway=river|canal; highway cycle/foot ways with tunnel=yes) intersected/matched with data/pcn.lines.geojson + data/cpn.lines.geojson",
+    "base": "OpenStreetMap via Overpass (waterway=river|canal; highway cycle/foot ways with bridge=yes and with tunnel=yes) intersected/matched with data/pcn.lines.geojson + data/cpn.lines.geojson",
     "licence": "OpenStreetMap ODbL; NParks/LTA cycling network under the Singapore Open Data Licence",
-    "snapshotAt": "2026-07-21",
-    "note": "Route-annotation points only (bridges over rivers/canals; road underpasses on the PCN), not a map layer. Derived artifact needing a live Overpass fetch, so like graph.json it is not reproducible from the repository alone; the committed snapshot is the reviewed one."
+    "snapshotAt": "2026-07-22",
+    "note": "Route-annotation SPANS (each crossing's two ends [lng1,lat1,lng2,lat2(,name)]; bridges over rivers/canals spanned by their OSM bridge=yes way, road underpasses on the PCN spanned by the tunnel way), not a map layer. Derived artifact needing a live Overpass fetch, so like graph.json it is not reproducible from the repository alone; the committed snapshot is the reviewed one."
   }
 }

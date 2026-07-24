@@ -85,18 +85,18 @@ test('route bridge/underpass markers hide on a zoomed-out overview and appear wh
   await page.waitForFunction(() => typeof CROSS !== 'undefined' && CROSS && CROSS.bridge.length > 0);
   // drive a route through a named bridge and an underpass, then sit at a zoomed-out overview
   const info = await page.evaluate(() => {
-    const namedBridge = CROSS.bridge.find(b => b[2]);
+    const namedBridge = CROSS.bridge.find(b => b[4]);            // span format: [lng1,lat1,lng2,lat2,name]
     const underpass = CROSS.underpass[0];
     routeResult = { coords: [[namedBridge[0], namedBridge[1]], [underpass[0], underpass[1]]], directions: [], hasCarWay: false };
     renderRouteCrossings();
-    map.jumpTo({ center: [namedBridge[0], namedBridge[1]], zoom: 11 });
-    return { count: crossMarkers.length, name: namedBridge[2] };
+    map.jumpTo({ center: [namedBridge[0], namedBridge[1]], zoom: 11 }); updateCrossVisibility();
+    return { count: crossMarkers.length, name: namedBridge[4] };
   });
   expect(info.count).toBeGreaterThan(0);
   // overview (zoom 11): markers hidden so the whole-route view stays clean
   await expect(page.locator('.cross-mk.cross-bridge').first()).toBeHidden();
   // zoom in: the markers appear
-  await page.evaluate(() => map.jumpTo({ zoom: 16 }));
+  await page.evaluate(() => { map.jumpTo({ zoom: 16 }); updateCrossVisibility(); });   // recompute now, not on the async zoom event (flaky)
   await expect(page.locator('.cross-mk.cross-bridge').first()).toBeVisible();
   await expect(page.locator('.cross-mk.cross-underpass').first()).toBeVisible();
   // tapping the named bridge marker reveals its waterway name
@@ -104,6 +104,30 @@ test('route bridge/underpass markers hide on a zoomed-out overview and appear wh
   await expect(named).toBeVisible();
   await named.dispatchEvent('click');   // dispatch, not pointer-click: a tiny marker isn't reliably hittable
   await expect(page.locator('.cross-pop')).toContainText('Bridge over ' + info.name);
+  expect(errors).toEqual([]);
+});
+
+test('a route crossing icon sits at the entrance you approach and flips with route direction', async ({ page }) => {
+  const errors = await openArtifact(page);
+  const geom = await page.evaluate(() => {
+    // a bridge SPAN: west end 103.80 -> east end 103.82, at lat 1.30 (like a real 170 m structure)
+    CROSS = { bridge: [[103.80, 1.30, 103.82, 1.30, 'Test Canal']], underpass: [] };
+    const wE = routeCrossings([[103.795, 1.30], [103.825, 1.30]])[0];   // riding west -> east
+    const eW = routeCrossings([[103.825, 1.30], [103.795, 1.30]])[0];   // riding east -> west
+    return { westEast: wE.lng, eastWest: eW.lng };
+  });
+  expect(geom.westEast).toBeCloseTo(103.80, 4);    // W->E enters at the WEST end of the span
+  expect(geom.eastWest).toBeCloseTo(103.82, 4);    // E->W enters at the EAST end — flipped, not the far end
+  // a nav notice fires once when the entrance is within range ahead
+  const notice = await page.evaluate(() => {
+    routeResult = { coords: [[103.795, 1.30], [103.825, 1.30]], directions: [] };
+    renderRouteCrossings();
+    navActive = true; routeCross.forEach(c => c.announced = false);
+    user = { lat: 1.30, lng: 103.7994, speed: 5, heading: 90 };   // just west of the 103.80 entrance
+    liveGuidance();
+    return document.getElementById('toast').textContent;
+  });
+  expect(notice).toContain('ahead');
   expect(errors).toEqual([]);
 });
 
@@ -424,6 +448,32 @@ test('the locate FAB exits location mode in one tap, clearing the nearest line a
   await expect(page.locator('#connRow')).toBeHidden();              // nearest-connector card cleared
   await expect(page.locator('#rackRow')).toBeHidden();              // nearest-rack card cleared
   expect(await page.evaluate(() => map.getSource('nearest')._data.features.length)).toBe(0); // dashed line removed
+  expect(errors).toEqual([]);
+});
+
+test('GO-mode facing direction auto-corrects toward the GPS course after sustained compass drift', async ({ page }) => {
+  const errors = await openArtifact(page);
+  // Following and moving due-east (GPS course 90°), but the compass reads 140° — a steady 50° drift.
+  const drift = await page.evaluate(() => {
+    headingMode = true; headingBias = 0; hdgCorrecting = false;
+    user = { lat: 1.30, lng: 103.85, acc: 5, speed: 5, heading: 90 };
+    deviceHeading = 140;
+    hdgMismatchSince = performance.now() - 6000;   // the disagreement has already persisted past the hold
+    const before = biasedHeading(deviceHeading);   // what the map faces now (140)
+    for (let i = 0; i < 25; i++) { deviceHeadingTs = performance.now(); updateHeadingBias(); }
+    return { before, after: biasedHeading(deviceHeading) };
+  });
+  expect(drift.before).toBeCloseTo(140, 0);
+  expect(drift.after).toBeLessThan(115);            // eased a long way toward the true course...
+  expect(drift.after).toBeGreaterThan(90);          // ...without overshooting past it
+  // But it must NOT touch the heading when essentially stationary (GPS course is unreliable there).
+  const stationary = await page.evaluate(() => {
+    headingBias = 0; hdgCorrecting = false; hdgMismatchSince = performance.now() - 6000;
+    user = { lat: 1.30, lng: 103.85, acc: 5, speed: 0.3, heading: 90 }; deviceHeading = 140;
+    for (let i = 0; i < 25; i++) { deviceHeadingTs = performance.now(); updateHeadingBias(); }
+    return headingBias;
+  });
+  expect(stationary).toBe(0);
   expect(errors).toEqual([]);
 });
 

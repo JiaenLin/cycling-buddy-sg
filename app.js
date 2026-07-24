@@ -36,6 +36,12 @@ let pendingUpdateWorker=null, renderPendingUpdate=null;
 // compass / heading-follow ("face direction") mode
 let headingMode=false, deviceHeading=null, deviceHeadingTs=0, camRAF=null, navStage=0; // navStage: 0 off · 1 facing (zoom-in) · 2 overview (zoom-out + route arrows)
 const camTarget={center:null, bearing:null};
+// Facing-direction auto-correction: the phone magnetometer drifts (magnetic interference, weak
+// calibration), so the map can face the wrong way. While actually moving, GPS course-over-ground is
+// ground truth; when the compass disagrees with it past HDG_TOL° for longer than HDG_HOLD, ease a
+// bias into the shown heading so it re-aligns smoothly. Bias 0 → identical to before (inert).
+let headingBias=0, hdgMismatchSince=0, hdgCorrecting=false;
+const HDG_TOL=35, HDG_HOLD=4000, HDG_GAIN=0.15, HDG_MOVE_MS=2.0;
 // weather (NEA 2-hour forecast)
 let WX=null, wxLoading=null, wxVisible=false, ZONES=null;
 
@@ -400,6 +406,7 @@ function onPos(e){
   computeNearestRack(); updateRackUI();
   loadWeather(); loadEnv(); updateWxUI();   // forecast + live readings for the area you're now in (throttled)
   if(recording) pushTrack(user, e.timestamp);
+  updateHeadingBias();   // re-align the facing direction to the GPS course if the compass has drifted
   if(headingMode){ camTarget.center=[user.lng,user.lat]; const b=currentHeading(); if(b!=null) camTarget.bearing=b; }
   if(navActive) liveGuidance();
 }
@@ -701,9 +708,19 @@ function routeCrossings(coords){
       if(d<best){ best=d; along=cum[i-1]+t*Math.sqrt(L2); } }
     return {d:best, along};
   }
+  // Each crossing is a real structure SPAN [end1,end2] (from OSM bridge=yes / tunnel=yes geometry).
+  // Put the icon at the end the rider reaches first (lower "along") — the entrance on the side you're
+  // coming from. It flips with route direction and never lands at the far end. No fixed distance used.
   const hits=[];
-  for(const b of CROSS.bridge){ const r=onRoute(b[0],b[1]); if(r.d<=TH) hits.push({kind:'bridge', name:b[2]||null, lng:b[0], lat:b[1], along:r.along}); }
-  for(const u of CROSS.underpass){ const r=onRoute(u[0],u[1]); if(r.d<=TH) hits.push({kind:'underpass', name:null, lng:u[0], lat:u[1], along:r.along}); }
+  function add(kind, e1, e2, name){
+    const r1=onRoute(e1[0],e1[1]), r2=onRoute(e2[0],e2[1]);
+    const mid=[(e1[0]+e2[0])/2,(e1[1]+e2[1])/2], rm=onRoute(mid[0],mid[1]);
+    if(Math.min(r1.d, r2.d, rm.d) > TH) return;                // structure isn't on this route
+    const enter = r1.along<=r2.along ? e1 : e2;                // approaching entrance
+    hits.push({kind, name, lng:enter[0], lat:enter[1], cx:mid[0], cy:mid[1], along:Math.min(r1.along, r2.along)});
+  }
+  for(const b of CROSS.bridge)    add('bridge',    [b[0],b[1]], [b[2],b[3]], b[4]||null);
+  for(const u of CROSS.underpass) add('underpass', [u[0],u[1]], [u[2],u[3]], null);
   hits.sort((a,b)=>a.along-b.along);
   // one physical crossing can span a few adjacent segments → collapse same kind+name within 120 m along
   const out=[]; for(const h of hits){ const p=out[out.length-1]; if(p && p.kind===h.kind && p.name===h.name && h.along-p.along<120) continue; out.push(h); }
@@ -715,15 +732,18 @@ const CROSS_IC={
 };
 // crossings ride ON the map, only along the planned route: a marker at each bridge/underpass so a
 // rider sees "a bridge/underpass is ahead" without cluttering the panel. Tap a marker for its name.
-let crossMarkers=[], crossPop=null;
+let crossMarkers=[], crossPop=null, routeCross=[];
+const CROSS_WARN=120;   // metres ahead: announce an approaching crossing once, as a nav notice
 function crossLabel(h){ return h.kind==='bridge' ? (h.name?'Bridge over '+h.name:'Canal bridge') : 'Underpass'; }
-function clearCrossMarkers(){ for(const m of crossMarkers) m.remove(); crossMarkers=[]; if(crossPop){ crossPop.remove(); crossPop=null; } }
+function clearCrossMarkers(){ for(const m of crossMarkers) m.remove(); crossMarkers=[]; routeCross=[]; if(crossPop){ crossPop.remove(); crossPop=null; } }
 function renderRouteCrossings(){
   clearCrossMarkers();
   const coords = routeResult && routeResult.coords;
   if(!coords) return;
   if(!CROSS){ loadCrossings(); return; }   // loadCrossings re-invokes this once the data is in
-  for(const h of routeCrossings(coords)){
+  // remember each crossing (its entrance + where it sits along the route) for the live approach notice
+  routeCross = routeCrossings(coords).map(h=>{ const pr=projectOnRoute([h.lng,h.lat], coords); return Object.assign(h,{pi:pr.i, pt:pr.t, announced:false}); });
+  for(const h of routeCross){
     const label=crossLabel(h);
     const el=document.createElement('div');
     el.className='cross-mk cross-'+h.kind;
@@ -736,6 +756,20 @@ function renderRouteCrossings(){
     crossMarkers.push(mk);
   }
   updateCrossVisibility();
+}
+// During GO, announce a crossing once when it comes within CROSS_WARN metres AHEAD of the rider —
+// a normal navigation notice ("Underpass ahead"), matched to the direction actually being travelled.
+function announceCrossing(proj){
+  if(!routeCross.length || !user) return;
+  let best=null;
+  for(const h of routeCross){
+    if(h.announced) continue;
+    const ahead = h.pi>proj.i || (h.pi===proj.i && h.pt>=proj.t);   // still in front of the rider
+    if(!ahead) continue;
+    const d=haversine(user.lat,user.lng, h.lat, h.lng);   // distance to the entrance we'll flag
+    if(d<=CROSS_WARN && (!best || d<best.d)) best={h,d};
+  }
+  if(best){ best.h.announced=true; toast(crossLabel(best.h)+' ahead'); }
 }
 // bridge/underpass markers only make sense up close: hide them on a zoomed-out route overview, show
 // them when zoomed in or while navigating (GO), so the whole-route view stays clean.
@@ -1162,7 +1196,7 @@ function onOrient(e){
   }
   if(h==null || isNaN(h)) return;
   deviceHeading=(h+360)%360; deviceHeadingTs=performance.now();
-  if(headingMode) camTarget.bearing=deviceHeading;
+  if(headingMode) camTarget.bearing=biasedHeading(deviceHeading);
   updateUserArrow();
 }
 function requestOrientation(){
@@ -1176,9 +1210,29 @@ function startOrientation(){ window.addEventListener('deviceorientationabsolute'
 function stopOrientation(){ window.removeEventListener('deviceorientationabsolute',onOrient,true); window.removeEventListener('deviceorientation',onOrient,true); deviceHeading=null; updateUserArrow(); }
 function currentHeading(){
   const now=performance.now();
-  if(deviceHeading!=null && (now-deviceHeadingTs)<2500) return deviceHeading;       // live compass
+  if(deviceHeading!=null && (now-deviceHeadingTs)<2500) return biasedHeading(deviceHeading); // live compass (drift-corrected)
   if(user && user.heading!=null && user.speed!=null && user.speed>0.6) return user.heading; // GPS course when moving
   return null;
+}
+function biasedHeading(h){ return h==null ? null : ((h + headingBias) % 360 + 360) % 360; }
+// Nudge headingBias so the drift-corrected compass re-aligns with the GPS course — but only while
+// following and genuinely moving, and only once the disagreement has persisted (normal turns and
+// brief GPS-course noise never trigger it). Called once per GPS fix from onPos; smooth by design.
+function updateHeadingBias(){
+  if(!headingMode){ hdgMismatchSince=0; hdgCorrecting=false; return; }
+  const now=performance.now();
+  const compassFresh = deviceHeading!=null && (now-deviceHeadingTs)<2500;
+  const gps = (user && user.heading!=null && user.speed!=null && user.speed>HDG_MOVE_MS) ? user.heading : null;
+  if(gps==null || !compassFresh){ hdgMismatchSince=0; hdgCorrecting=false; return; }   // no trustworthy course → leave it
+  const err = angDiff(gps, biasedHeading(deviceHeading));   // degrees to add to the shown heading to face travel
+  if(!hdgCorrecting){
+    if(Math.abs(err) < HDG_TOL){ hdgMismatchSince=0; return; }         // already aligned enough
+    if(!hdgMismatchSince){ hdgMismatchSince=now; return; }             // start the persistence timer
+    if(now-hdgMismatchSince < HDG_HOLD) return;                        // must persist before touching anything
+    hdgCorrecting=true;                                                // sustained drift confirmed
+  }
+  headingBias = normBearing(headingBias + err*HDG_GAIN);              // ease toward the GPS course
+  if(Math.abs(err) < HDG_TOL*0.4){ hdgCorrecting=false; hdgMismatchSince=0; }  // re-aligned → stop
 }
 function updateCompassIcon(){ const n=$('compassNeedle'); if(n) n.style.transform='rotate('+(-map.getBearing())+'deg)'; }
 function setNavArrows(show){ if(map.getLayer && map.getLayer('route-arrows')) map.setLayoutProperty('route-arrows','visibility',(show && routeResult)?'visible':'none'); }
@@ -1195,6 +1249,7 @@ function camLoop(){
 }
 function enterHeading(silent){   // silent: GO drives this, so it owns the toast instead
   headingMode=true; navStage=1;
+  headingBias=0; hdgMismatchSince=0; hdgCorrecting=false;   // fresh compass-correction state each session
   const btn=$('headingBtn'); btn.classList.add('active'); btn.setAttribute('aria-pressed','true');
   map.touchZoomRotate.disableRotation();               // two-finger = zoom only while following; avoids fighting the compass
   if(!locActive) geo.trigger();                          // ensure GPS + the user dot/heading beam
@@ -1209,6 +1264,7 @@ function enterHeading(silent){   // silent: GO drives this, so it owns the toast
 function exitHeading(reset){
   if(!headingMode) return;
   headingMode=false;
+  headingBias=0; hdgMismatchSince=0; hdgCorrecting=false;
   const btn=$('headingBtn'); btn.classList.remove('active'); btn.setAttribute('aria-pressed','false');
   stopOrientation();
   map.touchZoomRotate.enableRotation();
@@ -1468,6 +1524,7 @@ function liveGuidance(){
   offRouteCount=0;
   const end=coords[coords.length-1], dEnd=haversine(user.lat,user.lng,end[1],end[0]);
   if(dEnd<30){ setNavBanner('You’ve arrived 🎉',''); navActive=false; const b=$('rtGoBtn'); if(b) b.innerHTML=GO_HTML; return; }
+  announceCrossing(proj);   // heads-up when a bridge/underpass is coming up ahead on this route
   const nt=nextTurn(coords, proj);
   if(nt && nt.dist<dEnd+50) setNavBanner(nt.text,'in '+Math.round(nt.dist)+' m');
   else setNavBanner('Continue',Math.round(dEnd)+' m to go');
@@ -1487,7 +1544,7 @@ const GO_HTML=$('rtGoBtn').innerHTML;
 function updateFabStack(){ const f=$('fabStack'); if(f) f.classList.toggle('riding', navActive); }
 function startNav(){
   if(!routeResult) return;
-  navActive=true; offRouteCount=0; updateFabStack(); updateCrossVisibility();   // GO always shows the crossings
+  navActive=true; offRouteCount=0; routeCross.forEach(c=>c.announced=false); updateFabStack(); updateCrossVisibility();   // GO always shows the crossings
   if(!headingMode) enterHeading(true);   // GO auto-activates facing-direction: compass follow + heading arrow
   closeMenu(); setDock(true);                                      // fold the planner so the map + turn banner lead
   $('rtGoBtn').textContent='End ride';
