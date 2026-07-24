@@ -49,7 +49,10 @@ function overpass(query) {
   })();
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const round = n => +n.toFixed(DEC);
+// nearest distance (m) from a point to a polyline
+function distPtWay(p, way) { let d = Infinity; for (let i = 1; i < way.length; i++) d = Math.min(d, distPtSegM(p, way[i - 1], way[i])); return d; }
 // do open segments a-b and c-d cross?
 function segCross(a, b, c, d) {
   const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
@@ -117,20 +120,51 @@ async function main() {
     const y0 = Math.min(s.a[1], s.b[1]) / CELL | 0, y1 = Math.max(s.a[1], s.b[1]) / CELL | 0;
     for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) { const k = x + ',' + y; let a = wIdx.g.get(k); if (!a) { a = []; wIdx.g.set(k, a); } a.push(s); }
   }
-  const bridges = []; const seenB = new Set();
+  // crossing POINTS: the app's network crossing a waterway (complete set + waterway name)
+  const bridgePts = []; const seenB = new Set();
   for (const s of netSegs) {
     const mid = [(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2];
     for (const w of near(wIdx, mid)) {
       if (segCross(s[0], s[1], w.a, w.b)) {
         const lng = round(mid[0]), lat = round(mid[1]), key = lng + ',' + lat;
-        if (!seenB.has(key)) { seenB.add(key); bridges.push([lng, lat, w.name]); }
+        if (!seenB.has(key)) { seenB.add(key); bridgePts.push({ lng, lat, name: w.name }); }
       }
     }
   }
 
-  // ---- underpasses: OSM tunnel=yes cycle/foot ways coinciding with the network ----
-  console.log('pausing 20s to avoid the Overpass rate limit…');
-  await new Promise(r => setTimeout(r, 20000));
+  // bridge SPANS: OSM cycle/foot ways tagged bridge=yes carry the structure's real end-to-end
+  // geometry. Match each crossing point to the bridge way it lies on (prefer a cycleway, then the
+  // longest) and keep that way's two ENDS, so the planner can drop the icon at the entrance the
+  // rider approaches — not a fixed distance, not the far end.
+  console.log('pausing 20s to avoid the Overpass rate limit…'); await sleep(20000);
+  console.log('fetching bridge=yes cycle/foot ways…');
+  const brData = await overpass(`[out:json][timeout:90];(way["highway"~"^(cycleway|path|footway|pedestrian)$"]["bridge"="yes"](${BBOX.join(',')}););(._;>;);out body qt;`);
+  const brNode = {}; for (const el of brData.elements) if (el.type === 'node') brNode[el.id] = [el.lon, el.lat];
+  const brWays = [];
+  for (const el of brData.elements) if (el.type === 'way' && el.nodes) {
+    const c = el.nodes.map(n => brNode[n]).filter(Boolean); if (c.length < 2) continue;
+    const cyc = el.tags?.highway === 'cycleway' || el.tags?.bicycle === 'designated';
+    let len = 0; for (let i = 1; i < c.length; i++) len += Math.hypot((c[i][0] - c[i - 1][0]) * MLNG, (c[i][1] - c[i - 1][1]) * MLAT);
+    brWays.push({ c, ends: [c[0], c[c.length - 1]], cyc, len });
+  }
+  console.log(`  bridge=yes ways: ${brWays.length}`);
+  const bridges = []; const seenSpan = new Set(); let spanned = 0;
+  for (const bp of bridgePts) {
+    const p = [bp.lng, bp.lat];
+    let best = null;
+    for (const bw of brWays) {
+      if (distPtWay(p, bw.c) > 20) continue;                          // the crossing must lie on this bridge way
+      if (!best || (bw.cyc && !best.cyc) || (bw.cyc === best.cyc && bw.len > best.len)) best = bw;
+    }
+    const e = best ? best.ends : [[bp.lng, bp.lat], [bp.lng, bp.lat]];  // no OSM bridge way → degenerate (point)
+    if (best) spanned++;
+    const rec = [round(e[0][0]), round(e[0][1]), round(e[1][0]), round(e[1][1]), bp.name];
+    const key = rec.slice(0, 4).join(',');
+    if (!seenSpan.has(key)) { seenSpan.add(key); bridges.push(rec); }
+  }
+
+  // ---- underpasses: OSM tunnel=yes cycle/foot ways on the network → store the tunnel's two ENDS ----
+  console.log('pausing 20s to avoid the Overpass rate limit…'); await sleep(20000);
   console.log('fetching tunnel=yes cycle/foot ways…');
   const tData = await overpass(`[out:json][timeout:90];(way["highway"~"^(cycleway|path|footway|pedestrian)$"]["tunnel"="yes"](${BBOX.join(',')}););(._;>;);out body qt;`);
   const tNode = {}; for (const el of tData.elements) if (el.type === 'node') tNode[el.id] = [el.lon, el.lat];
@@ -142,30 +176,32 @@ async function main() {
     let onNet = false;
     for (const s of near(netIdx, mid)) { if (distPtSegM(mid, s[0], s[1]) <= NEAR_M) { onNet = true; break; } }
     if (!onNet) continue;
-    const lng = round(mid[0]), lat = round(mid[1]), key = lng + ',' + lat;
-    if (!seenU.has(key)) { seenU.add(key); underpasses.push([lng, lat]); }
+    const e1 = c[0], e2 = c[c.length - 1], key = round(mid[0]) + ',' + round(mid[1]);
+    if (!seenU.has(key)) { seenU.add(key); underpasses.push([round(e1[0]), round(e1[1]), round(e2[0]), round(e2[1])]); }
   }
 
-  // deterministic ordering
+  // deterministic ordering by the first endpoint
   const byXY = (p, q) => p[0] - q[0] || p[1] - q[1];
   bridges.sort(byXY); underpasses.sort(byXY);
 
   const out = { bridge: bridges, underpass: underpasses };
   fs.writeFileSync(path.join(ROOT, 'data/crossings.json'), JSON.stringify(out));
-  const named = bridges.filter(b => b[2]).length;
-  const lngs = [...bridges, ...underpasses].map(p => p[0]), lats = [...bridges, ...underpasses].map(p => p[1]);
+  const named = bridges.filter(b => b[4]).length;
+  const pts = [...bridges.flatMap(b => [[b[0], b[1]], [b[2], b[3]]]), ...underpasses.flatMap(u => [[u[0], u[1]], [u[2], u[3]]])];
+  const lngs = pts.map(p => p[0]), lats = pts.map(p => p[1]);
   const meta = {
-    source: 'OpenStreetMap via Overpass: waterway=river|canal intersected with the LTA/NParks cycling network (bridges); highway cycle/foot ways tagged tunnel=yes on that network (underpasses).',
+    source: 'OpenStreetMap via Overpass: waterway=river|canal intersected with the LTA/NParks cycling network (bridge crossings, named by the waterway), each spanned by its OSM bridge=yes cycle/foot way; highway cycle/foot ways tagged tunnel=yes on the network (underpasses, spanned by the tunnel way).',
     licence: 'ODbL 1.0 (OpenStreetMap contributors); cycling network under the Singapore Open Data Licence',
-    description: "Route-annotation points only (not a map layer): where a park connector bridges a river/canal, or dips into a road underpass. Consumed by the planner to label a planned route.",
+    description: "Route-annotation spans (not a map layer): each entry is the structure's two ENDS [lng1,lat1,lng2,lat2(,name)], so the planner drops the icon at the entrance the rider approaches. Bridges add the waterway name.",
     snapshotAt: new Date().toISOString().slice(0, 10),
-    builtFrom: 'data/cpn.lines.geojson + data/pcn.lines.geojson + OSM waterways/tunnels',
-    bridges: bridges.length, bridgesNamed: named, underpasses: underpasses.length,
+    builtFrom: 'data/cpn.lines.geojson + data/pcn.lines.geojson + OSM waterways/bridges/tunnels',
+    format: '{ bridge:[[lng1,lat1,lng2,lat2,name],…], underpass:[[lng1,lat1,lng2,lat2],…] }',
+    bridges: bridges.length, bridgesNamed: named, bridgesSpanned: spanned, underpasses: underpasses.length,
     count: bridges.length + underpasses.length,
     bounds: [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)].map(round)
   };
   fs.writeFileSync(path.join(ROOT, 'data/crossings.meta.json'), JSON.stringify(meta, null, 2) + '\n');
   const bytes = fs.statSync(path.join(ROOT, 'data/crossings.json')).size;
-  console.log(`\ncrossings.json: ${bridges.length} bridges (${named} named) + ${underpasses.length} underpasses = ${meta.count} points, ${bytes.toLocaleString()} bytes`);
+  console.log(`\ncrossings.json: ${bridges.length} bridges (${named} named, ${spanned} spanned by an OSM bridge way) + ${underpasses.length} underpasses, ${bytes.toLocaleString()} bytes`);
 }
 main().catch(e => { console.error(e); process.exit(1); });

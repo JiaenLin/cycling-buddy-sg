@@ -1,6 +1,6 @@
 /* Cycling Buddy SG PWA service worker — offline app shell + runtime basemap tile cache
    © 2026 Lin Jiaen · All rights reserved */
-const VERSION = 'cbsg-v45';
+const VERSION = 'cbsg-v48';
 
 // Preview and production are served from the SAME origin (jiaenlin.github.io) under different
 // sub-paths (/cycling-buddy-sg/ and /cycling-buddy-sg-preview/). CacheStorage is per-ORIGIN, so
