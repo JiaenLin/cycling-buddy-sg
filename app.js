@@ -533,6 +533,10 @@ function wxInfo(f){
 try{ const s=JSON.parse(localStorage.getItem('wx')||'null'); if(s && s.areas && s.areas.length) WX=s; }catch(e){}
 function wxIsStale(){ return !WX || !navigator.onLine || (Date.now()-(WX.at||0))>35*60*1000; }
 function wxEndLabel(){ if(WX && WX.validText){ const p=WX.validText.split(/\s+to\s+/i); if(p[1]) return p[1].trim(); } return ''; }
+// NEA refreshes the 2-hr forecast ~every 30 min; if its own update is >2 h old the feed has frozen
+// (it keeps returning 200 with a stale window). Flag it so we don't show an old window as if current.
+const WX_DELAY_MS=2*60*60*1000;
+function wxForecastDelayed(){ return !!(WX && WX.upd && (Date.now()-WX.upd)>WX_DELAY_MS); }
 function loadWeather(force){
   if(!force && WX && (Date.now()-(WX.at||0))<WX_TTL) return Promise.resolve(WX);
   if(wxLoading) return wxLoading;
@@ -541,9 +545,11 @@ function loadWeather(force){
     .then(j=>{
       if(!j || j.code!==0 || !j.data) throw new Error('bad');
       const meta={}; (j.data.area_metadata||[]).forEach(a=>{ const L=a.label_location||{}; if(L.latitude!=null) meta[a.name]={lat:L.latitude,lng:L.longitude}; });
-      const it=(j.data.items||[])[0]||{};
+      const it=(j.data.items||[])[0]||{}, vp=it.valid_period||{};
       const areas=(it.forecasts||[]).map(f=>{ const m=meta[f.area]||{}; return {area:f.area, forecast:f.forecast, lat:m.lat, lng:m.lng}; }).filter(a=>a.lat!=null);
-      if(areas.length){ WX={areas, validText:(it.valid_period||{}).text||'', at:Date.now()}; try{ localStorage.setItem('wx', JSON.stringify(WX)); }catch(e){} }
+      // NEA's OWN data age (not our fetch time): the feed sometimes freezes for hours while still 200-ing.
+      const upd=Date.parse(j.data.updateTimestamp || it.updateTimestamp || vp.end || '')||null;
+      if(areas.length){ WX={areas, validText:vp.text||'', upd, at:Date.now()}; try{ localStorage.setItem('wx', JSON.stringify(WX)); }catch(e){} }
       wxLoading=null; onWeather(); return WX;
     })
     .catch(()=>{ wxLoading=null; onWeather(); return WX; });  // keep last snapshot on failure
@@ -632,19 +638,28 @@ function updateWxUI(){
   const place = nf ? nf.area : 'Islandwide';
   const info=wxInfo(cond), end=wxEndLabel(), go=wxGoLabel(info.sev), wet=['rain','heavy','storm'].includes(info.sev);
   const temp = ENV ? nearReading(ENV.temp) : null, uv = ENV ? ENV.uv : null, pm = ENV ? nearReading(ENV.pm25) : null;
-  $('wxIc').textContent=info.emoji;
-  // temperature leads the header (big, next to the condition) so the row reads at a glance
+  // temperature leads the header (big) — it and the stats below stay live even when the rain feed freezes
   const tEl=$('wxTemp'); tEl.textContent = temp!=null ? Math.round(temp)+'°' : ''; tEl.hidden = temp==null;
-  $('wxMain').textContent=cond;
-  // sub-line: where · (rain window when wet, else verdict) · offline flag
-  const sub=[place, wet && end ? 'til '+end : go.label]; if(wxIsStale()) sub.push('offline');
-  $('wxSub').textContent = sub.join(' · ');
-  // two stats fill the width beneath the header: UV and PM2.5 (— when unavailable). The qualitative
-  // word rides beside the number (color-toned); the label is just the short metric name so nothing clips.
+  if(wxForecastDelayed()){
+    // NEA's forecast feed has stalled (still 200s but hours old) — don't pass off an old window as
+    // current. The temperature and the UV/PM2.5 stats below are separate feeds and stay live.
+    $('wxIc').textContent='⏳';
+    $('wxMain').textContent='Rain forecast delayed';
+    $('wxSub').textContent=place+' · NEA feed not updating';
+    row.dataset.sev='delayed';                 // no colour rule → neutral rail, not a fake go/no-go
+  }else{
+    $('wxIc').textContent=info.emoji;
+    $('wxMain').textContent=cond;
+    // sub-line: where · (rain window when wet, else verdict) · offline flag
+    const sub=[place, wet && end ? 'til '+end : go.label]; if(wxIsStale()) sub.push('offline');
+    $('wxSub').textContent = sub.join(' · ');
+    row.dataset.sev=go.sev;
+  }
+  // two stats fill the width beneath the header: UV and PM2.5 (— when unavailable). Independent feeds.
   $('wxStats').innerHTML =
     wxStat(uv!=null?Math.round(uv):'—', uv!=null?uvWord(uv):'night', 'UV', uv!=null?uvBand(uv):'') +
     wxStat(pm!=null?Math.round(pm):'—', pm!=null?pmWord(pm):'', 'PM2.5', pm!=null?pmBand(pm):'');
-  row.dataset.sev=go.sev; row.hidden=false;
+  row.hidden=false;
   updatePeek();
 }
 function routeWeather(coords){   // scan the whole path, not just the destination
@@ -669,7 +684,7 @@ function routeWeather(coords){   // scan the whole path, not just the destinatio
 function updateRouteWx(){
   const el=$('rtWx'); if(!el) return;
   const coords = routeResult && routeResult.coords;
-  if(views.viewRoute.hidden || !coords || !WX || !WX.areas.length){ el.hidden=true; return; }
+  if(views.viewRoute.hidden || !coords || !WX || !WX.areas.length || wxForecastDelayed()){ el.hidden=true; return; }
   const rw=routeWeather(coords); if(!rw||!rw.worst){ el.hidden=true; return; }
   const w=rw.worst;
   let txt, sev=w.sev, emoji=w.emoji;

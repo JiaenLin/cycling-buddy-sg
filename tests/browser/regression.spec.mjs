@@ -79,6 +79,26 @@ test('weather row leads with live temperature and shows UV + PM2.5 as colour-cod
   expect(errors).toEqual([]);
 });
 
+test('a stale NEA forecast shows a delayed state instead of an old window, keeping temp and PM2.5 live', async ({ page }) => {
+  const errors = await openArtifact(page);
+  // a forecast fetched just now, but whose NEA update timestamp is 10 h old (the feed has frozen)
+  await page.evaluate(() => {
+    WX = { areas: [{ area: 'Bishan', forecast: 'Cloudy', lat: 1.35, lng: 103.84 }], validText: '2.00 am to 4.00 am', upd: Date.now() - 10 * 3600 * 1000, at: Date.now() };
+    ENV = { temp: [{ lat: 1.35, lng: 103.84, value: 31 }], pm25: [{ lat: 1.35, lng: 103.84, value: 20 }], at: Date.now() };
+    updateWxUI();
+  });
+  await expect(page.locator('#wxMain')).toHaveText('Rain forecast delayed');
+  await expect(page.locator('#wxSub')).toContainText('NEA feed not updating');
+  await expect(page.locator('#wxRow')).toHaveAttribute('data-sev', 'delayed');   // neutral rail, no fake verdict
+  await expect(page.locator('#wxTemp')).toContainText('31°');                     // temperature stays live
+  await expect(page.locator('#wxStats')).toContainText('PM2.5');                  // air-quality stat stays
+  // once NEA's data is current again, the normal forecast returns
+  await page.evaluate(() => { WX.upd = Date.now(); WX.validText = '12.00 pm to 2.00 pm'; updateWxUI(); });
+  await expect(page.locator('#wxMain')).toHaveText('Cloudy');
+  await expect(page.locator('#wxRow')).not.toHaveAttribute('data-sev', 'delayed');
+  expect(errors).toEqual([]);
+});
+
 test('route bridge/underpass markers hide on a zoomed-out overview and appear when zoomed in, named on tap', async ({ page }) => {
   const errors = await openArtifact(page);
   await page.getByRole('button', { name: 'Plan a ride' }).click();
